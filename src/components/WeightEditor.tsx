@@ -17,10 +17,13 @@ export function WeightEditor({
   legs,
   onChange,
   onRemove,
+  notes,
 }: {
   legs: Leg[];
   onChange: (symbol: string, bps: number) => void;
   onRemove: (symbol: string) => void;
+  /** One line per symbol on why it is in the basket, when composed. */
+  notes?: Record<string, string>;
 }) {
   const maxForOne = 10_000 - MIN_LEG_BPS * (legs.length - 1);
 
@@ -34,7 +37,9 @@ export function WeightEditor({
               <StockChip symbol={leg.symbol} size="sm" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-semibold leading-tight">{stock?.ticker}</p>
-                <p className="truncate text-[11px] text-faint">{stock?.name}</p>
+                <p className="truncate text-[11px] text-faint">
+                  {notes?.[leg.symbol] || stock?.name}
+                </p>
               </div>
               <span className="w-14 text-right text-[15px] font-semibold tnum">
                 {formatWeight(leg.bps)}

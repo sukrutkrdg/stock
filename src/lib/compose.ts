@@ -46,6 +46,38 @@ export type ComposeResult = {
   dropped: { symbol: string; reason: string }[];
 };
 
+/** What one composition cost, so the bill is measured rather than guessed. */
+export type ComposeUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  latencyMs: number;
+  usd: number;
+};
+
+/** Claude Opus 5 list price, US dollars per million tokens. */
+const PRICE = { input: 5.0, output: 25.0, cacheRead: 0.5, cacheWrite: 6.25 } as const;
+
+export function priceOf(usage: {
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  cache_read_input_tokens?: number | null;
+  cache_creation_input_tokens?: number | null;
+}): number {
+  const input = usage.input_tokens ?? 0;
+  const output = usage.output_tokens ?? 0;
+  const cacheRead = usage.cache_read_input_tokens ?? 0;
+  const cacheWrite = usage.cache_creation_input_tokens ?? 0;
+  return (
+    (input * PRICE.input +
+      output * PRICE.output +
+      cacheRead * PRICE.cacheRead +
+      cacheWrite * PRICE.cacheWrite) /
+    1_000_000
+  );
+}
+
 const SYSTEM = `You turn a plain-language investment idea into a basket of tokenized stocks.
 
 You may only choose from the universe given in the user message. Never invent a
@@ -67,16 +99,26 @@ You are composing a basket, not giving advice. Do not predict returns, promise
 outcomes, or tell the user this is a good investment. The rationale describes
 what the basket holds and why those names fit the request — nothing more.`;
 
+/**
+ * The universe, deliberately without prices.
+ *
+ * Two reasons, and both matter. A price changes every twenty seconds, which
+ * would make this block different on every request and defeat prompt caching —
+ * a cache is a prefix match, so one volatile number in it costs the whole
+ * entry. And a price in the prompt invites the model to reason about whether a
+ * stock looks cheap, which is exactly the advice it has been told not to give.
+ * Which companies fit an idea is not a question that needs a quote.
+ */
 function universe(tickers: Ticker[]): string {
-  const tradable = tickers.filter((t) => t.tradable);
-  const rows = tradable
-    .map((t) => `${t.symbol}\t${t.ticker}\t${t.name}\t${t.sector}\t$${t.price.toFixed(2)}`)
+  const rows = tickers
+    .filter((t) => t.tradable)
+    .map((t) => `${t.symbol}\t${t.ticker}\t${t.name}\t${t.sector}`)
     .join("\n");
 
   const untradable = tickers.filter((t) => !t.tradable).map((t) => t.ticker);
 
   return [
-    "SYMBOL\tTICKER\tCOMPANY\tSECTOR\tLAST PRICE",
+    "SYMBOL\tTICKER\tCOMPANY\tSECTOR",
     rows,
     untradable.length
       ? `\nNot available (no onchain liquidity yet, do not use): ${untradable.join(", ")}`
@@ -105,28 +147,34 @@ export function composeConfigured(): boolean {
  * the weights are re-derived here. Whatever the model returns, what leaves this
  * function is a slate that sums to exactly 100% and can be priced.
  */
-export async function composeSlate(prompt: string): Promise<ComposeResult> {
+export async function composeSlate(
+  prompt: string,
+): Promise<ComposeResult & { usage: ComposeUsage }> {
   const description = prompt.trim();
   if (description.length < 3) throw new ComposeError("Describe what you want in a few words.");
   if (description.length > 400) throw new ComposeError("Keep the description under 400 characters.");
 
   const market = await readMarket();
+  const startedAt = Date.now();
 
   const response = await client().messages.parse({
     model: "claude-opus-5",
     max_tokens: 2000,
-    system: SYSTEM,
+    // Instructions and universe sit in `system` behind a cache breakpoint, and
+    // only the user's sentence varies per request. Caching is a prefix match,
+    // so putting every stable byte first is what makes a repeat cost a tenth of
+    // the first call instead of the same again.
+    system: [
+      {
+        type: "text",
+        text: `${SYSTEM}\n\nThe universe of tokenized stocks:\n\n${universe(market.tickers)}`,
+        cache_control: { type: "ephemeral" },
+      },
+    ],
     // A constrained mapping over thirteen options: low effort keeps a
     // user-facing route fast without costing quality on a task this bounded.
     output_config: { effort: "low", format: zodOutputFormat(Composition) },
-    messages: [
-      {
-        role: "user",
-        content: `Universe of tokenized stocks available right now:\n\n${universe(
-          market.tickers,
-        )}\n\nThe request: ${description}`,
-      },
-    ],
+    messages: [{ role: "user", content: description }],
   });
 
   if (response.stop_reason === "refusal") {
@@ -140,6 +188,14 @@ export async function composeSlate(prompt: string): Promise<ComposeResult> {
     name: parsed.name.slice(0, 32).trim() || "Untitled slate",
     rationale: parsed.rationale.slice(0, 140).trim(),
     ...normalizePicks(parsed.picks, market.tickers),
+    usage: {
+      inputTokens: response.usage.input_tokens ?? 0,
+      outputTokens: response.usage.output_tokens ?? 0,
+      cacheReadTokens: response.usage.cache_read_input_tokens ?? 0,
+      cacheWriteTokens: response.usage.cache_creation_input_tokens ?? 0,
+      latencyMs: Date.now() - startedAt,
+      usd: priceOf(response.usage),
+    },
   };
 }
 

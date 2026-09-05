@@ -74,6 +74,17 @@ const statements = [
    )`,
   `create index if not exists dca_due_idx on dca_plans (status, next_charge_at)`,
 
+  // Rate-limit counters. `/api/compose` spends money per call and needs no
+  // credential to reach, so the ceiling has to live somewhere every serverless
+  // instance can see — an in-process counter would grant its full allowance
+  // once per instance.
+  `create table if not exists rate_limits (
+     bucket      text primary key,
+     hits        integer not null default 0,
+     expires_at  timestamptz not null
+   )`,
+  `create index if not exists rate_limits_expiry_idx on rate_limits (expires_at)`,
+
   // Notification credentials handed over when a user adds the Mini App. Keyed
   // by fid because that is the identity the host client speaks; a user may hold
   // several wallets but has exactly one place to be notified.

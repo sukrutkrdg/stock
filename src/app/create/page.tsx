@@ -167,7 +167,7 @@ function Builder() {
 
           <SectionTitle>Weights</SectionTitle>
           <div className="px-4">
-            <WeightEditor legs={legs} onChange={setWeight} onRemove={toggle} />
+            <WeightEditor legs={legs} onChange={setWeight} onRemove={toggle} notes={composed?.reasons} />
           </div>
         </>
       )}
