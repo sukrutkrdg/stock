@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useAccount } from "wagmi";
 import { useMiniKit, useComposeCast, useAddFrame } from "@coinbase/onchainkit/minikit";
 import { AllocationRing } from "./AllocationRing";
 import { StockChip } from "./StockChip";
@@ -10,6 +9,7 @@ import { Banner, Button, Card, SectionTitle, Spinner } from "./ui";
 import { ScheduleSheet } from "./ScheduleSheet";
 import { useMarket, tickerMap } from "@/hooks/useMarket";
 import { useBuySlate } from "@/hooks/useBuySlate";
+import { useWallet } from "@/hooks/useWallet";
 import { formatPercent, formatShares, formatUsd, formatWeight } from "@/lib/format";
 import type { Slate } from "@/lib/slate";
 
@@ -17,7 +17,7 @@ const PRESETS = [25, 50, 100, 250];
 
 export function SlateView({ slate }: { slate: Slate }) {
   const params = useSearchParams();
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, isConnecting, connect, connectError } = useWallet();
   const { setMiniAppReady, isMiniAppReady, context } = useMiniKit();
   const { composeCast } = useComposeCast();
   const addFrame = useAddFrame();
@@ -68,6 +68,15 @@ export function SlateView({ slate }: { slate: Slate }) {
       void addFrame();
     } catch {
       // Handled in the hook.
+    }
+  }
+
+  async function onConnect() {
+    try {
+      await connect();
+    } catch {
+      // useWallet surfaces the message; a rejected connection is not an error
+      // worth interrupting the page for.
     }
   }
 
@@ -229,9 +238,9 @@ export function SlateView({ slate }: { slate: Slate }) {
         </>
       )}
 
-      {error && (
+      {(error || connectError) && (
         <div className="px-4 pt-4">
-          <Banner tone="error">{error}</Banner>
+          <Banner tone="error">{error ?? connectError}</Banner>
         </div>
       )}
 
@@ -288,20 +297,22 @@ export function SlateView({ slate }: { slate: Slate }) {
                     ? "Almost there…"
                     : `Buy ${formatUsd(Number(quote.spentUsdc) / 1e6)}`}
             </Button>
+          ) : !isConnected ? (
+            <Button className="flex-1" onClick={onConnect} loading={isConnecting}>
+              {isConnecting ? "Connecting…" : "Connect a wallet"}
+            </Button>
           ) : (
             <Button
               className="flex-1"
               onClick={onPreview}
               loading={stage === "quoting"}
-              disabled={!isConnected || marketClosed || amount < 5}
+              disabled={marketClosed || amount < 5}
             >
-              {!isConnected
-                ? "Connect a wallet"
-                : marketClosed
-                  ? "Market closed"
-                  : stage === "quoting"
-                    ? "Pricing…"
-                    : "Preview route"}
+              {marketClosed
+                ? "Market closed"
+                : stage === "quoting"
+                  ? "Pricing…"
+                  : "Preview route"}
             </Button>
           )}
         </div>

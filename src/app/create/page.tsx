@@ -2,10 +2,10 @@
 
 import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAccount } from "wagmi";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { useMarket, tickerMap } from "@/hooks/useMarket";
 import { useCreateSlate } from "@/hooks/useSlates";
+import { useWallet } from "@/hooks/useWallet";
 import { MarketList } from "@/components/MarketList";
 import { WeightEditor } from "@/components/WeightEditor";
 import { AllocationRing } from "@/components/AllocationRing";
@@ -24,7 +24,7 @@ export default function CreatePage() {
 function Builder() {
   const router = useRouter();
   const params = useSearchParams();
-  const { address } = useAccount();
+  const { address } = useWallet();
   const { context } = useMiniKit();
   const market = useMarket();
   const create = useCreateSlate();

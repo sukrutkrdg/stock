@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { useAccount } from "wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { usePortfolio } from "@/hooks/usePortfolio";
@@ -10,12 +9,13 @@ import { useSlatesFor } from "@/hooks/useSlates";
 import { useMarket, tickerMap } from "@/hooks/useMarket";
 import { SlateCard } from "@/components/SlateCard";
 import { StockChip } from "@/components/StockChip";
-import { Banner, Card, SectionTitle, Skeleton } from "@/components/ui";
+import { Banner, Button, Card, SectionTitle, Skeleton } from "@/components/ui";
+import { useWallet } from "@/hooks/useWallet";
 import { formatShares, formatUsd, shortAddress } from "@/lib/format";
 import type { DcaPlan } from "@/lib/repo";
 
 export default function YouPage() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, isConnecting, isInMiniApp, connect, connectError } = useWallet();
   const { setMiniAppReady, isMiniAppReady } = useMiniKit();
   const portfolio = usePortfolio();
   const market = useMarket();
@@ -49,12 +49,29 @@ export default function YouPage() {
     return (
       <div className="px-4 pt-6">
         <h1 className="text-[24px] font-bold tracking-tight">You</h1>
-        <div className="mt-5">
-          <Banner>
-            Connect a wallet to see your positions. Inside Base App this happens on its own — if you
-            are in a browser, connect from your wallet extension.
-          </Banner>
-        </div>
+        <p className="mt-2 text-[14px] leading-snug text-muted">
+          {isInMiniApp
+            ? "Connecting your Base Account…"
+            : "Connect a wallet to see the tokenized stocks you hold and the slates you have bought."}
+        </p>
+
+        {/* Inside Base App the connection arrives on its own, so offering a
+            button there would ask the user to do something already happening. */}
+        {!isInMiniApp && (
+          <Button
+            className="mt-5 w-full"
+            onClick={() => void connect().catch(() => {})}
+            loading={isConnecting}
+          >
+            {isConnecting ? "Connecting…" : "Connect a wallet"}
+          </Button>
+        )}
+
+        {connectError && (
+          <div className="mt-4">
+            <Banner tone="error">{connectError}</Banner>
+          </div>
+        )}
       </div>
     );
   }
