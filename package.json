@@ -16,7 +16,8 @@
     "verify:manifest": "node scripts/verify-manifest.mjs",
     "test:compose": "tsx --test scripts/test-compose.mts",
     "test:sell": "tsx --test scripts/test-sell.mts",
-    "verify:sell": "tsx scripts/verify-sell.mts"
+    "verify:sell": "tsx scripts/verify-sell.mts",
+    "preflight": "tsx scripts/preflight.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
