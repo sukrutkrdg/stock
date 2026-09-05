@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { useSlatesFor, useUnlistSlate } from "@/hooks/useSlates";
 import { useMarket, tickerMap } from "@/hooks/useMarket";
+import { SellSheet } from "@/components/SellSheet";
 import { SlateCard } from "@/components/SlateCard";
 import { StockChip } from "@/components/StockChip";
 import { Banner, Button, Card, SectionTitle, Skeleton } from "@/components/ui";
@@ -59,6 +60,7 @@ export default function YouPage() {
   });
 
   const unlist = useUnlistSlate();
+  const [selling, setSelling] = useState<string[] | null>(null);
 
   const tickers = tickerMap(market.data);
 
@@ -130,7 +132,19 @@ export default function YouPage() {
 
       {(portfolio.data?.positions.length ?? 0) > 0 && (
         <>
-          <SectionTitle>Positions</SectionTitle>
+          <SectionTitle
+            action={
+              <button
+                type="button"
+                onClick={() => setSelling([])}
+                className="px-2 py-1 text-[13px] font-semibold text-brand"
+              >
+                Sell
+              </button>
+            }
+          >
+            Positions
+          </SectionTitle>
           <ul className="mx-4 divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-surface">
             {portfolio.data!.positions.map((position) => (
               <li key={position.symbol} className="flex items-center gap-3 p-3.5">
@@ -144,6 +158,14 @@ export default function YouPage() {
                   </p>
                 </div>
                 <p className="text-[15px] font-semibold tnum">{formatUsd(position.value)}</p>
+                <button
+                  type="button"
+                  onClick={() => setSelling([position.symbol])}
+                  aria-label={`Sell ${position.ticker}`}
+                  className="-mr-1 shrink-0 px-3 py-2.5 text-[13px] text-muted transition hover:text-text"
+                >
+                  Sell
+                </button>
               </li>
             ))}
           </ul>
@@ -266,6 +288,14 @@ export default function YouPage() {
             </Banner>
           </div>
         )}
+
+      {selling !== null && portfolio.data && (
+        <SellSheet
+          positions={portfolio.data.positions}
+          preselected={selling.length > 0 ? selling : undefined}
+          onClose={() => setSelling(null)}
+        />
+      )}
     </div>
   );
 }

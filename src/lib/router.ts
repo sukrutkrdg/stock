@@ -18,6 +18,11 @@ import { CHAIN_ID, USDC_ADDRESS } from "./chain";
  *
  * Runs server-side. Nothing here holds keys or custody: it returns transaction
  * fields that the user's own wallet signs.
+ *
+ * The same two calls serve both directions. A buy spends USDC for a stock; a
+ * sale spends a stock for USDC. What differs is not the routing but the
+ * approval: a basket buy needs one approval on USDC, while a sale needs one per
+ * stock being sold, because each is a separate token.
  */
 const BASE_URL = "https://aggregator-api.kyberswap.com/base/api/v1";
 
@@ -80,12 +85,22 @@ async function call<T>(
  * through `buildSwap`, which is where slippage and the recipient are bound in.
  */
 export async function findRoute(args: {
-  buyToken: Address;
+  /** Token being bought. Omit when selling — proceeds always come back in USDC. */
+  buyToken?: Address;
+  /** Token being sold. Omit when buying — the app always spends USDC. */
+  sellToken?: Address;
   sellAmount: bigint;
 }): Promise<Route> {
+  const tokenIn = args.sellToken ?? USDC_ADDRESS;
+  const tokenOut = args.buyToken ?? USDC_ADDRESS;
+
+  if (tokenIn === tokenOut) {
+    throw new RouterError("A route needs two different tokens.");
+  }
+
   const search = new URLSearchParams({
-    tokenIn: USDC_ADDRESS,
-    tokenOut: args.buyToken,
+    tokenIn,
+    tokenOut,
     amountIn: args.sellAmount.toString(),
   });
 
@@ -141,12 +156,17 @@ export async function buildSwap(args: {
 
 /** Quote and build one leg in the two calls the aggregator requires. */
 export async function routeSwap(args: {
-  buyToken: Address;
+  buyToken?: Address;
+  sellToken?: Address;
   sellAmount: bigint;
   taker: Address;
   slippageBps: number;
 }): Promise<BuiltSwap> {
-  const route = await findRoute({ buyToken: args.buyToken, sellAmount: args.sellAmount });
+  const route = await findRoute({
+    buyToken: args.buyToken,
+    sellToken: args.sellToken,
+    sellAmount: args.sellAmount,
+  });
   return buildSwap({ route, taker: args.taker, slippageBps: args.slippageBps });
 }
 

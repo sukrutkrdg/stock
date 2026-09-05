@@ -15,6 +15,15 @@ per leg. Buying a six-stock slate is one signature, not seven. Outside Base App
 the same calls replay sequentially via viem's fallback, so a browser wallet
 still works.
 
+**Selling is a first-class path, not an afterthought.** Positions sell back to
+USDC in one signature, in whole or in part. It is not the mirror of a buy: a
+basket buy needs one approval because everything is paid for in USDC, while a
+sale needs one per stock, since each is its own token. And a sale names exact
+*raw* token units — derive that from a multiplier-adjusted balance and you
+either overshoot the balance and revert the batch, or leave a remainder on a
+position the user asked to close. Selling is keyed on positions rather than
+slates, because a wallet holds fungible tokens, not baskets.
+
 **Multiplier-aware from the ground up.** These are B20 Asset tokens, and one
 token is not permanently one share — a corporate action moves the multiplier
 while raw balances stay put. Every share figure in the app goes through
@@ -137,6 +146,8 @@ src/lib/          stocks.ts      the 13 B20 tokens + their Chainlink feeds
                   market.ts      one multicall for every price and multiplier
                   router.ts      KyberSwap aggregator client (server-side only)
                   compose.ts     natural language -> a constrained, buyable slate
+                  sell.ts        raw-balance maths for exits
+                  auth.ts        signature checks for destructive actions
                   verifyBuy.ts   receipt verification before a buy counts
                   repo.ts        Neon queries
 src/app/api/      market, quote, buys, slates, portfolio, dca, notify, webhook
@@ -149,6 +160,9 @@ scripts/          verify-onchain.mjs · test-slate.mts · migrate.mjs · make-as
 ```bash
 npm test                 # slate maths + composer normalisation invariants
 npm run verify:onchain   # every token address, feed and ABI selector, against Base
+npm run verify:route     # a live buy batch
+npm run verify:sell      # a live sell batch — the guard blocks this route out of hours
+npm run verify:manifest  # the Mini App manifest, images and embed tag
 npm run typecheck
 npm run build
 ```
