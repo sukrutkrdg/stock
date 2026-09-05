@@ -15,7 +15,8 @@ import { formatShares, formatUsd, shortAddress } from "@/lib/format";
 import type { DcaPlan } from "@/lib/repo";
 
 export default function YouPage() {
-  const { address, isConnected, isConnecting, isInMiniApp, connect, connectError } = useWallet();
+  const { address, isConnected, isConnecting, isInMiniApp, stuck, connect, disconnect, connectError } =
+    useWallet();
   const { setMiniAppReady, isMiniAppReady } = useMiniKit();
   const portfolio = usePortfolio();
   const market = useMarket();
@@ -83,9 +84,18 @@ export default function YouPage() {
           </Button>
         )}
 
-        {connectError && (
-          <div className="mt-4">
-            <Banner tone="error">{connectError}</Banner>
+        {(connectError || stuck) && (
+          <div className="mt-4 space-y-3">
+            <Banner tone="error">
+              {stuck
+                ? "A wallet session is half-open, which is why connecting keeps failing."
+                : connectError}
+            </Banner>
+            {/* Without this a wedged session can only be cleared by wiping site
+                data — the connect button would keep hitting the same wall. */}
+            <Button variant="secondary" className="w-full" onClick={() => void disconnect()}>
+              Reset the wallet session
+            </Button>
           </div>
         )}
       </div>

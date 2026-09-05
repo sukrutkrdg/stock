@@ -17,7 +17,8 @@ const PRESETS = [25, 50, 100, 250];
 
 export function SlateView({ slate }: { slate: Slate }) {
   const params = useSearchParams();
-  const { address, isConnected, isConnecting, connect, connectError } = useWallet();
+  const { address, isConnected, isConnecting, stuck, connect, disconnect, connectError } =
+    useWallet();
   const { setMiniAppReady, isMiniAppReady, context } = useMiniKit();
   const { composeCast } = useComposeCast();
   const addFrame = useAddFrame();
@@ -238,9 +239,18 @@ export function SlateView({ slate }: { slate: Slate }) {
         </>
       )}
 
-      {(error || connectError) && (
-        <div className="px-4 pt-4">
-          <Banner tone="error">{error ?? connectError}</Banner>
+      {(error || connectError || stuck) && (
+        <div className="space-y-3 px-4 pt-4">
+          <Banner tone="error">
+            {stuck
+              ? "A wallet session is half-open, which is why connecting keeps failing."
+              : (error ?? connectError)}
+          </Banner>
+          {stuck && (
+            <Button variant="secondary" className="w-full" onClick={() => void disconnect()}>
+              Reset the wallet session
+            </Button>
+          )}
         </div>
       )}
 
