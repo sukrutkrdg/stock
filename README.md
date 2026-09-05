@@ -30,6 +30,16 @@ after the app reads the transaction receipt on Base and confirms the stock
 tokens landed in that wallet. Recording is idempotent on the transaction hash,
 so a retry cannot inflate the number.
 
+**Describe a basket instead of building one.** "AI exposure, but not Tesla"
+composes a slate you can then edit. The model returns *relative* weights, never
+basis points: asking for integers that sum to exactly 10,000 across eight legs
+invites arithmetic that is subtly wrong, and a slate that does not sum to 100%
+cannot be bought. Conviction is a judgement call the model is good at; the exact
+apportionment is arithmetic the code already does correctly. Its picks are a
+proposal — `normalizePicks` drops invented tickers and illiquid names, collapses
+duplicates, caps the count, and re-derives the weights, so whatever comes back
+leaves as a buyable slate.
+
 **Schedules remind, they do not withdraw.** A recurring plan sends a Mini App
 notification that deep-links into a pre-filled buy the user signs themselves.
 Slate never takes custody. See [Scheduled buys](#scheduled-buys) for why.
@@ -51,6 +61,8 @@ npm run dev
 | `NEXT_PUBLIC_URL` | Manifest, share links | Your deployed origin. Must match the signed domain exactly. |
 | `DATABASE_URL` | Saving slates, schedules | `vercel integration add neon` injects it. |
 | `FARCASTER_HEADER` / `_PAYLOAD` / `_SIGNATURE` | Listing in Base App | [base.dev](https://base.dev) account association tool. |
+| `ANTHROPIC_API_KEY` | The slate composer | [console.anthropic.com](https://console.anthropic.com). Optional — without it the composer hides itself. |
+| `NEXT_PUBLIC_BUILDER_CODE` | Attribution + rewards | base.dev -> Settings -> Builder Code. |
 | `BASE_RPC_URL` | Optional | A dedicated RPC. Falls back to the public endpoint. |
 | `CRON_SECRET` | Schedule reminders | Set by Vercel for cron invocations. |
 
@@ -124,6 +136,7 @@ src/lib/          stocks.ts      the 13 B20 tokens + their Chainlink feeds
                   slate.ts       weights, apportionment, content-addressed ids
                   market.ts      one multicall for every price and multiplier
                   router.ts      KyberSwap aggregator client (server-side only)
+                  compose.ts     natural language -> a constrained, buyable slate
                   verifyBuy.ts   receipt verification before a buy counts
                   repo.ts        Neon queries
 src/app/api/      market, quote, buys, slates, portfolio, dca, notify, webhook
@@ -134,7 +147,7 @@ scripts/          verify-onchain.mjs · test-slate.mts · migrate.mjs · make-as
 ## Checks
 
 ```bash
-npm test                 # slate maths invariants — weights, apportionment, ids
+npm test                 # slate maths + composer normalisation invariants
 npm run verify:onchain   # every token address, feed and ABI selector, against Base
 npm run typecheck
 npm run build

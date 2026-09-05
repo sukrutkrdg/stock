@@ -10,12 +10,14 @@
     "verify:onchain": "node scripts/verify-onchain.mjs",
     "assets": "node scripts/make-assets.mjs",
     "db:migrate": "dotenv -e .env.local -- node scripts/migrate.mjs",
-    "test": "tsx --test scripts/test-slate.mts",
+    "test": "tsx --test scripts/test-slate.mts scripts/test-compose.mts",
     "verify:route": "tsx scripts/verify-route.mts",
     "screenshots": "node scripts/make-screenshots.mjs",
-    "verify:manifest": "node scripts/verify-manifest.mjs"
+    "verify:manifest": "node scripts/verify-manifest.mjs",
+    "test:compose": "tsx --test scripts/test-compose.mts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
     "@coinbase/onchainkit": "^1.1.2",
     "@neondatabase/serverless": "^1.1.0",
     "@tanstack/react-query": "^5.102.8",
@@ -24,7 +26,8 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "viem": "^2.56.3",
-    "wagmi": "^2.19.5"
+    "wagmi": "^2.19.5",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

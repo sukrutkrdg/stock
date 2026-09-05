@@ -102,7 +102,7 @@ export function validateName(raw: string): string {
  * Proportional rounding without this step is what produces a slate that says
  * 100.1%: three legs of 6.15% each display as 6.2%.
  */
-function apportion(weights: number[], total: number, floor: number): number[] {
+export function apportion(weights: number[], total: number, floor: number): number[] {
   const count = weights.length;
   if (count === 0) return [];
 

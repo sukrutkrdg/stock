@@ -6,6 +6,7 @@ import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { useMarket, tickerMap } from "@/hooks/useMarket";
 import { useCreateSlate } from "@/hooks/useSlates";
 import { useWallet } from "@/hooks/useWallet";
+import { Composer, type Composed } from "@/components/Composer";
 import { MarketList } from "@/components/MarketList";
 import { WeightEditor } from "@/components/WeightEditor";
 import { AllocationRing } from "@/components/AllocationRing";
@@ -42,6 +43,22 @@ function Builder() {
   const [legs, setLegs] = useState<Leg[]>(seeded);
   const [name, setName] = useState(params.get("name") ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [composed, setComposed] = useState<Composed | null>(null);
+
+  /**
+   * A composed slate lands in the editor, not in a preview.
+   *
+   * The composer's job is to get past the blank page; the weights, the name and
+   * every position stay the user's to change. Treating the result as a draft
+   * rather than an answer is also what keeps this honest — nobody is being told
+   * what to buy.
+   */
+  function onComposed(result: Composed) {
+    setComposed(result);
+    setLegs(result.legs);
+    setName(result.name);
+    setError(null);
+  }
 
   const selected = useMemo(() => new Set(legs.map((leg) => leg.symbol)), [legs]);
   const tickers = tickerMap(market.data);
@@ -60,6 +77,8 @@ function Builder() {
    */
   function toggle(symbol: string) {
     setError(null);
+    // Once the user edits by hand the rationale no longer describes the slate.
+    setComposed(null);
     setLegs((current) => {
       const exists = current.some((leg) => leg.symbol === symbol);
       if (exists) {
@@ -72,6 +91,7 @@ function Builder() {
   }
 
   function setWeight(symbol: string, bps: number) {
+    setComposed(null);
     setLegs((current) => rebalance(current, symbol, bps));
   }
 
@@ -101,6 +121,21 @@ function Builder() {
           Pick up to {MAX_LEGS} stocks, set the weights, share it.
         </p>
       </header>
+
+      <Composer onComposed={onComposed} />
+
+      {composed && (
+        <div className="px-4 pt-3">
+          <Banner>
+            <span className="font-semibold text-text">{composed.name}</span> — {composed.rationale}
+            {composed.dropped.length > 0 && (
+              <span className="mt-1 block text-faint">
+                Left out: {composed.dropped.map((d) => `${d.symbol} (${d.reason})`).join(", ")}
+              </span>
+            )}
+          </Banner>
+        </div>
+      )}
 
       {legs.length > 0 && (
         <>
