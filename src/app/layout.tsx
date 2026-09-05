@@ -8,6 +8,9 @@ import { TabBar } from "@/components/TabBar";
 import { appUrl } from "@/lib/env";
 import { embedTag } from "@/lib/embed";
 
+/** Registration id issued by base.dev for the Slate Mini App. */
+const BASE_APP_ID = "6a382ac597e45029701137da";
+
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
@@ -23,6 +26,10 @@ export const metadata: Metadata = {
   other: {
     // Turns a bare link to the app into a launchable card in the Base App feed.
     "fc:miniapp": embedTag({ title: "Open Slate", url: appUrl() }),
+    // Ties this deployment to the app registered on base.dev. Base App reads it
+    // to match the page against the entry in its directory; without it the app
+    // is just an unrecognised web page to the client.
+    "base:app_id": BASE_APP_ID,
   },
 };
 
