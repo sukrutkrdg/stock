@@ -47,7 +47,9 @@ next-env.d.ts
 # variables without carrying any of their values.
 !.env.example
 
-# Local agent tooling, installed by `vercel integration add`. Not app code.
+# Local editor and tooling scratch. Not app code.
 .agents/
 .claude/
+AGENTS.md
+CLAUDE.md
 skills-lock.json
