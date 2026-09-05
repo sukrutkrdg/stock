@@ -1,36 +1,151 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Slate
 
-## Getting Started
+Baskets of tokenized stocks on Base, as a Base App Mini App.
 
-First, run the development server:
+Build a basket, buy the whole thing in one signature, share it into the feed.
+Anyone who taps the card can copy it.
+
+---
+
+## What it actually does
+
+**One signature per basket.** A Base Account is a smart wallet, so a slate buy
+goes out as a single `wallet_sendCalls` batch — one USDC approval plus one swap
+per leg. Buying a six-stock slate is one signature, not seven. Outside Base App
+the same calls replay sequentially via viem's fallback, so a browser wallet
+still works.
+
+**Multiplier-aware from the ground up.** These are B20 Asset tokens, and one
+token is not permanently one share — a corporate action moves the multiplier
+while raw balances stay put. Every share figure in the app goes through
+`scaledBalanceOf` / the multiplier, never `balanceOf` alone.
+
+**It tells you when the market is closed.** Chainlink's equity feeds run 24/5,
+so on a weekend the last round is legitimately hours old. Slate labels that
+state and refuses to quote into it, rather than showing a stale number that
+looks live.
+
+**Holder counts are verified onchain.** A buy only increments a slate's counter
+after the app reads the transaction receipt on Base and confirms the stock
+tokens landed in that wallet. Recording is idempotent on the transaction hash,
+so a retry cannot inflate the number.
+
+**Schedules remind, they do not withdraw.** A recurring plan sends a Mini App
+notification that deep-links into a pre-filled buy the user signs themselves.
+Slate never takes custody. See [Scheduled buys](#scheduled-buys) for why.
+
+---
+
+## Setup
 
 ```bash
+npm install
+cp .env.example .env.local     # then fill it in — see below
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Environment
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Variable | Needed for | Where it comes from |
+| --- | --- | --- |
+| `NEXT_PUBLIC_URL` | Manifest, share links | Your deployed origin. Must match the signed domain exactly. |
+| `DATABASE_URL` | Saving slates, schedules | `vercel integration add neon` injects it. |
+| `FARCASTER_HEADER` / `_PAYLOAD` / `_SIGNATURE` | Listing in Base App | [base.dev](https://base.dev) account association tool. |
+| `BASE_RPC_URL` | Optional | A dedicated RPC. Falls back to the public endpoint. |
+| `CRON_SECRET` | Schedule reminders | Set by Vercel for cron invocations. |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The app degrades honestly without them: no `DATABASE_URL` and the market still
+works but slates cannot be saved.
 
-## Learn More
+**Swap routing needs no key.** Slate routes through the KyberSwap aggregator.
+The 0x Swap API — which Base's own DeFi guide documents — cannot be used for
+these tokens: it answers a quote for any `*c` equity with `422
+BUY_TOKEN_NOT_AUTHORIZED_FOR_TRADE`, "the buy token is not authorized for trade
+due to legal restrictions". That is a compliance gate on 0x's side, not a
+configuration problem; the same key quotes ordinary Base tokens fine.
 
-To learn more about Next.js, take a look at the following resources:
+### Database
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+vercel integration add neon        # accept the marketplace terms in the browser once
+vercel env pull .env.local --yes
+npm run db:migrate
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`db:migrate` is idempotent — safe on every deploy.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Publishing to Base App
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Deploy.** `vercel deploy --prod`. Note the production URL.
+2. **Set `NEXT_PUBLIC_URL`** to that URL and redeploy, so the manifest and every
+   share link agree with the domain you are about to sign.
+3. **Sign the manifest.** Go to [base.dev](https://base.dev), paste the domain
+   into the account association tool, and sign with the publishing wallet. Copy
+   `header`, `payload` and `signature` into `FARCASTER_HEADER`,
+   `FARCASTER_PAYLOAD`, `FARCASTER_SIGNATURE`, then redeploy.
+4. **Verify.** Open `https://your-domain/.well-known/farcaster.json` — the
+   `accountAssociation` object must be populated. If it is empty, the signature
+   did not validate and Base App will not list the app. `withValidManifest`
+   drops an invalid association rather than serving a broken one, so an empty
+   object is the signal.
+5. **Preview.** Paste the URL into [base.dev/preview](https://base.dev/preview)
+   to check the embed card and that the app launches.
+6. **Publish.** Post the URL in Base App. The `fc:miniapp` tag turns the post
+   into a launchable card.
+
+---
+
+## Scheduled buys
+
+Slate schedules a reminder, not a transfer.
+
+Base Account [Spend Permissions](https://docs.base.org/sdks/base-account/reference/base-pay/subscribe)
+would allow a fully autonomous version: the user grants a recurring USDC
+allowance once, and a backend CDP wallet charges it on schedule. The problem is
+what has to happen next — that USDC lands in an app-controlled wallet, gets
+swapped, and gets forwarded to the user. Funds transiting an app wallet is money
+transmission, with the licensing that implies.
+
+So the shipped design keeps the wallet in charge: the cron run
+(`/api/cron/dca`) notifies, the user taps, the user signs. The
+`dca_plans.subscription_id` column is already there for whoever wants to take on
+the regulated version.
+
+---
+
+## Layout
+
+```
+src/lib/          stocks.ts      the 13 B20 tokens + their Chainlink feeds
+                  b20.ts         B20 ABI and multiplier maths
+                  chainlink.ts   feed ABI, staleness and market-closed thresholds
+                  slate.ts       weights, apportionment, content-addressed ids
+                  market.ts      one multicall for every price and multiplier
+                  router.ts      KyberSwap aggregator client (server-side only)
+                  verifyBuy.ts   receipt verification before a buy counts
+                  repo.ts        Neon queries
+src/app/api/      market, quote, buys, slates, portfolio, dca, notify, webhook
+src/app/          /  market and feed · /create builder · /s/[id] slate · /you portfolio
+scripts/          verify-onchain.mjs · test-slate.mts · migrate.mjs · make-assets.mjs
+```
+
+## Checks
+
+```bash
+npm test                 # slate maths invariants — weights, apportionment, ids
+npm run verify:onchain   # every token address, feed and ABI selector, against Base
+npm run typecheck
+npm run build
+```
+
+`verify:onchain` is the one to run after touching `stocks.ts` or `b20.ts`: it
+calls `symbol()` on all thirteen precompiles, reads every feed, and checks the
+ABI's function selectors against the published B20 reference.
+
+---
+
+Tokenized stocks are issued by Coinbase, backed 1:1 by shares in regulated
+custody (Alpaca, ADGM), and carry dividend and voting rights. They are not
+available to US persons. This app is not investment advice.

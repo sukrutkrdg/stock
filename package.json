@@ -5,19 +5,33 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "verify:onchain": "node scripts/verify-onchain.mjs",
+    "assets": "node scripts/make-assets.mjs",
+    "db:migrate": "dotenv -e .env.local -- node scripts/migrate.mjs",
+    "test": "tsx --test scripts/test-slate.mts",
+    "verify:route": "tsx scripts/verify-route.mts"
   },
   "dependencies": {
+    "@coinbase/onchainkit": "^1.1.2",
+    "@neondatabase/serverless": "^1.1.0",
+    "@tanstack/react-query": "^5.102.8",
     "next": "16.3.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "viem": "^2.56.3",
+    "wagmi": "^2.19.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv-cli": "^11.0.0",
+    "sharp": "^0.35.4",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5"
   }
 }

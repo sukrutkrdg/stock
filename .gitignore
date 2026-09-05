@@ -39,3 +39,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel
+.env*
+
+# The template is the one env file that belongs in the repo — it names the
+# variables without carrying any of their values.
+!.env.example
+
+# Local agent tooling, installed by `vercel integration add`. Not app code.
+.agents/
+.claude/
+skills-lock.json

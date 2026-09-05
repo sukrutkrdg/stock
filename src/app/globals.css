@@ -1,26 +1,104 @@
 @import "tailwindcss";
 
+/*
+ * Slate runs inside the Base App webview on a phone. The palette is fixed dark
+ * rather than theme-reactive: the host paints a dark chrome around the frame,
+ * and a page that flips to light on a light-mode phone reads as a bug rather
+ * than a preference. `color-scheme` keeps native controls in step.
+ */
+@theme {
+  --color-ink: #0a0b0d;
+  --color-surface: #131519;
+  --color-raised: #1a1e25;
+  --color-line: #262b33;
+  --color-line-soft: #1d2128;
+
+  --color-text: #f3f5f8;
+  --color-muted: #8d95a3;
+  --color-faint: #5d6472;
+
+  --color-brand: #0052ff;
+  --color-brand-soft: #0f1c3d;
+  --color-up: #35d07f;
+  --color-down: #f2544b;
+  --color-warn: #f2b544;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  background: var(--color-ink);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Tabular figures everywhere a number can change under the reader's eyes, so
+   prices and weights do not jitter sideways as they tick. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* The horizontal ticker strip and any wide table scroll inside themselves; the
+   page body must never scroll sideways in a webview. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-line);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -8px;
+  height: 20px;
+  width: 20px;
+  border-radius: 999px;
+  background: var(--color-text);
+  border: 4px solid var(--color-ink);
+  box-shadow: 0 0 0 1px var(--color-line);
+  cursor: grab;
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-line);
+}
+input[type="range"]::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  border: 4px solid var(--color-ink);
+  border-radius: 999px;
+  background: var(--color-text);
+}
+
+@keyframes slate-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.pulse {
+  animation: slate-pulse 1.6s ease-in-out infinite;
 }
