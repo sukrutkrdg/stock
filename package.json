@@ -11,7 +11,8 @@
     "assets": "node scripts/make-assets.mjs",
     "db:migrate": "dotenv -e .env.local -- node scripts/migrate.mjs",
     "test": "tsx --test scripts/test-slate.mts",
-    "verify:route": "tsx scripts/verify-route.mts"
+    "verify:route": "tsx scripts/verify-route.mts",
+    "screenshots": "node scripts/make-screenshots.mjs"
   },
   "dependencies": {
     "@coinbase/onchainkit": "^1.1.2",
@@ -29,6 +30,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv-cli": "^11.0.0",
+    "puppeteer-core": "^24.43.1",
     "sharp": "^0.35.4",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
