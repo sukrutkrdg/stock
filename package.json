@@ -12,7 +12,8 @@
     "db:migrate": "dotenv -e .env.local -- node scripts/migrate.mjs",
     "test": "tsx --test scripts/test-slate.mts",
     "verify:route": "tsx scripts/verify-route.mts",
-    "screenshots": "node scripts/make-screenshots.mjs"
+    "screenshots": "node scripts/make-screenshots.mjs",
+    "verify:manifest": "node scripts/verify-manifest.mjs"
   },
   "dependencies": {
     "@coinbase/onchainkit": "^1.1.2",
