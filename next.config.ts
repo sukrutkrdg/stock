@@ -16,13 +16,13 @@ const CANONICAL_HOST = process.env.NEXT_PUBLIC_URL
 /**
  * Hostnames that used to serve this app and must not serve it any more.
  *
- * Each entry is filtered against the canonical host below, so a name can be
- * listed before it is retired: while it *is* canonical the rule is skipped, and
- * it starts redirecting the moment `NEXT_PUBLIC_URL` moves on. That makes a
- * domain switch a single env change rather than a code change that has to land
- * at exactly the right moment.
+ * Entries are filtered against the canonical host below, so listing a name is
+ * safe even while it is still the one in use — the rule is skipped until
+ * `NEXT_PUBLIC_URL` moves on. Adding a future domain here ahead of a switch
+ * makes the switch a single env change instead of a code change that has to
+ * land at exactly the right moment.
  */
-const RETIRED_HOSTS = ["slate-lake-six.vercel.app", "slatebaskets.vercel.app"];
+const RETIRED_HOSTS = ["slate-lake-six.vercel.app"];
 
 const nextConfig: NextConfig = {
   // Next blocks dev-resource requests from hosts it does not recognise, which
