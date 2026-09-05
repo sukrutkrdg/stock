@@ -14,7 +14,7 @@ import { useIsInMiniApp } from "@coinbase/onchainkit/minikit";
  * read-only dead end with a button that does nothing.
  */
 export function useWallet() {
-  const { address, isConnected, isConnecting } = useAccount();
+  const { address, isConnected } = useAccount();
   const { connectors, connectAsync, isPending, error } = useConnect();
   const { disconnect } = useDisconnect();
   const { isInMiniApp } = useIsInMiniApp();
@@ -45,10 +45,17 @@ export function useWallet() {
   return {
     address,
     isConnected,
-    // Inside the host, a moment of "connecting" is the auto-connect running;
-    // showing a connect button during it would flash a control that is about to
-    // become irrelevant.
-    isConnecting: isConnecting || isPending,
+    /**
+     * Only the user's own connect attempt counts as "connecting".
+     *
+     * Deliberately not wagmi's `useAccount().isConnecting`, which also covers
+     * the reconnect wagmi runs on mount. Outside a Mini App that reconnect
+     * probes the Farcaster connector, which has no host to answer it and hangs
+     * rather than rejecting — so the account status sits on "connecting"
+     * forever. Gating the button on it left a permanently disabled
+     * "Connecting…" that could never be clicked.
+     */
+    isConnecting: isPending,
     isInMiniApp,
     connect,
     disconnect,
