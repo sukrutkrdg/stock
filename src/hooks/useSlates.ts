@@ -1,6 +1,8 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAccount, useSignMessage } from "wagmi";
+import { unlistMessage } from "@/lib/auth";
 import type { Slate, Leg } from "@/lib/slate";
 
 async function json<T>(response: Response): Promise<T> {
@@ -51,8 +53,42 @@ export function useCreateSlate() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(draft),
       });
-      const { slate } = await json<{ slate: Slate }>(response);
-      return slate;
+      // `created` distinguishes a genuine new basket from joining one that
+      // already existed — the ids are content addresses, so an identical
+      // composition always resolves to the same row.
+      return json<{ slate: Slate; created: boolean }>(response);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["slates"] }),
+  });
+}
+
+/**
+ * Unlist a basket you created.
+ *
+ * The wallet signs a statement naming the exact slate, and the server verifies
+ * the signature recovers to the creator on record. Without that the endpoint
+ * would be trusting a claimed address, which is not authorisation at all.
+ */
+export function useUnlistSlate() {
+  const queryClient = useQueryClient();
+  const { address } = useAccount();
+  const { signMessageAsync } = useSignMessage();
+
+  return useMutation({
+    mutationFn: async (slateId: string) => {
+      if (!address) throw new Error("Connect a wallet first.");
+
+      const issuedAt = new Date().toISOString();
+      const signature = await signMessageAsync({
+        message: unlistMessage(slateId, address, issuedAt),
+      });
+
+      const response = await fetch(`/api/slates/${encodeURIComponent(slateId)}`, {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ address, signature, issuedAt }),
+      });
+      return json<{ slate: Slate; alreadyHidden: boolean }>(response);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["slates"] }),
   });

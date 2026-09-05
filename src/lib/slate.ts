@@ -20,6 +20,8 @@ export type Slate = {
   creatorName: string | null;
   copies: number;
   createdAt: string;
+  /** Unlisted by its creator: still reachable by link, absent from the feed. */
+  hidden?: boolean;
 };
 
 export type SlateDraft = Pick<Slate, "name" | "legs"> &

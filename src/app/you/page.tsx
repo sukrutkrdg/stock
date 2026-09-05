@@ -2,10 +2,10 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { usePortfolio } from "@/hooks/usePortfolio";
-import { useSlatesFor } from "@/hooks/useSlates";
+import { useSlatesFor, useUnlistSlate } from "@/hooks/useSlates";
 import { useMarket, tickerMap } from "@/hooks/useMarket";
 import { SlateCard } from "@/components/SlateCard";
 import { StockChip } from "@/components/StockChip";
@@ -31,17 +31,33 @@ export default function YouPage() {
     queryKey: ["dca", address],
     enabled: Boolean(address),
     queryFn: async (): Promise<DcaPlan[]> => {
-      const response = await fetch(`/api/dca?owner=${address}`);
-      if (!response.ok) return [];
-      const body = await response.json();
-      return body.plans ?? [];
+      const response = await fetch(`/api/dca?owner=${encodeURIComponent(address!)}`);
+      // Throwing rather than returning [] — a failed read used to render as
+      // "no schedules", which is indistinguishable from having none.
+      if (!response.ok) throw new Error("Could not load your schedules.");
+      return (await response.json()).plans ?? [];
     },
   });
 
-  async function cancel(id: string) {
-    await fetch(`/api/dca?owner=${address}&id=${id}`, { method: "DELETE" });
-    await queryClient.invalidateQueries({ queryKey: ["dca", address] });
-  }
+  /**
+   * Cancelling used to be a fire-and-forget fetch whose result was discarded:
+   * no status check, no error state, no pending state. A request that failed —
+   * or a tap that missed the button entirely — looked exactly like success, so
+   * the schedule stayed on screen with nothing to explain why.
+   */
+  const cancelPlan = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(
+        `/api/dca?owner=${encodeURIComponent(address!)}&id=${encodeURIComponent(id)}`,
+        { method: "DELETE" },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "Could not cancel the schedule.");
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dca", address] }),
+  });
+
+  const unlist = useUnlistSlate();
 
   const tickers = tickerMap(market.data);
 
@@ -144,19 +160,37 @@ export default function YouPage() {
                     {plan.charges > 0 ? ` · ${plan.charges} sent` : ""}
                   </p>
                 </div>
-                <Link href={`/s/${plan.slateId}`} className="text-[13px] font-semibold text-brand">
+                {/* Both controls carry real padding so they clear the 44px
+                    minimum tap target. The previous Cancel was 41x20px sitting
+                    12px from this link, which is how a cancel becomes a
+                    navigation. */}
+                <Link
+                  href={`/s/${plan.slateId}`}
+                  className="shrink-0 px-3 py-2.5 text-[13px] font-semibold text-brand"
+                >
                   Open
                 </Link>
                 <button
                   type="button"
-                  onClick={() => cancel(plan.id)}
-                  className="text-[13px] text-faint transition hover:text-down"
+                  onClick={() => cancelPlan.mutate(plan.id)}
+                  disabled={cancelPlan.isPending}
+                  aria-label={`Cancel the ${formatUsd(Number(plan.amountUsdc))} schedule`}
+                  className="-mr-1 shrink-0 px-3 py-2.5 text-[13px] text-muted transition hover:text-down disabled:opacity-40"
                 >
-                  Cancel
+                  {cancelPlan.isPending && cancelPlan.variables === plan.id
+                    ? "Cancelling…"
+                    : "Cancel"}
                 </button>
               </li>
             ))}
           </ul>
+          {(cancelPlan.error || plans.error) && (
+            <div className="px-4 pt-2">
+              <Banner tone="error">
+                {(cancelPlan.error ?? plans.error)?.message}
+              </Banner>
+            </div>
+          )}
         </>
       )}
 
@@ -176,9 +210,39 @@ export default function YouPage() {
           <SectionTitle>Slates you made</SectionTitle>
           <div className="space-y-2 px-4">
             {created.data!.map((slate) => (
-              <SlateCard key={slate.id} slate={slate} tickers={tickers} />
+              <div key={slate.id}>
+                <SlateCard slate={slate} tickers={tickers} />
+                <div className="flex items-center justify-between px-1 pt-1">
+                  <span className="text-[11px] text-faint">
+                    {slate.hidden ? "Unlisted — reachable by link only" : "In the public feed"}
+                  </span>
+                  {!slate.hidden && (
+                    <button
+                      type="button"
+                      onClick={() => unlist.mutate(slate.id)}
+                      disabled={unlist.isPending}
+                      aria-label={`Unlist ${slate.name}`}
+                      className="-mr-1 px-3 py-2 text-[12px] text-muted transition hover:text-down disabled:opacity-40"
+                    >
+                      {unlist.isPending && unlist.variables === slate.id
+                        ? "Signing…"
+                        : "Unlist"}
+                    </button>
+                  )}
+                </div>
+              </div>
             ))}
           </div>
+          {unlist.error && (
+            <div className="px-4 pt-2">
+              <Banner tone="error">{unlist.error.message}</Banner>
+            </div>
+          )}
+          <p className="px-5 pt-2 text-[11px] leading-relaxed text-faint">
+            Unlisting removes a basket from the feed. Anyone already holding it keeps it and
+            existing links keep working — a basket is shared, so it is withdrawn rather than
+            erased. Your wallet signs the request; nothing moves onchain.
+          </p>
         </>
       )}
 

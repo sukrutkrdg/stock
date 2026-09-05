@@ -27,7 +27,15 @@ const statements = [
      copies            integer not null default 0,
      created_at        timestamptz not null default now()
    )`,
-  `create index if not exists slates_trending_idx on slates (copies desc, created_at desc)`,
+  // Unlisting is a soft hide, never a delete. Three tables cascade from
+  // `slates`, and one of them — buy_events — is what makes recording a buy
+  // idempotent; dropping those rows would let old transaction hashes be
+  // replayed to re-inflate a holder count. A hidden row keeps holders, keeps
+  // shared links working, and keeps that guard intact.
+  `alter table slates add column if not exists hidden_at timestamptz`,
+  `drop index if exists slates_trending_idx`,
+  `create index if not exists slates_trending_idx
+     on slates (copies desc, created_at desc) where hidden_at is null`,
   `create index if not exists slates_creator_idx on slates (creator_address)`,
 
   // One row per wallet per slate: a wallet holding a slate counts once, however

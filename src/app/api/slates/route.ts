@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     const name = validateName(input.name ?? "");
     const legs = validateLegs(input.legs ?? []);
 
-    const slate = await createSlate({
+    const { slate, created } = await createSlate({
       name,
       legs,
       creatorAddress: input.creatorAddress ?? null,
@@ -54,7 +54,11 @@ export async function POST(request: Request) {
       creatorName: input.creatorName ?? null,
     });
 
-    return Response.json({ slate }, { status: 201 });
+    // 201 only for a genuine insert. A basket is content-addressed, so an
+    // identical composition resolves to the row that already exists — telling
+    // the client it created that row is how someone ends up believing they own
+    // a slate they merely joined.
+    return Response.json({ slate, created }, { status: created ? 201 : 200 });
   } catch (error) {
     if (error instanceof SlateError) {
       return Response.json({ error: error.message }, { status: 400 });

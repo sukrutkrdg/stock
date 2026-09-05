@@ -98,7 +98,7 @@ function Builder() {
   async function save() {
     setError(null);
     try {
-      const slate = await create.mutateAsync({
+      const { slate } = await create.mutateAsync({
         name: name.trim(),
         legs,
         creatorAddress: address,

@@ -11,6 +11,7 @@ type SlateRow = {
   creator_name: string | null;
   copies: number;
   created_at: string | Date;
+  hidden_at?: string | Date | null;
 };
 
 function toSlate(row: SlateRow): Slate {
@@ -23,6 +24,7 @@ function toSlate(row: SlateRow): Slate {
     creatorName: row.creator_name,
     copies: row.copies,
     createdAt: new Date(row.created_at).toISOString(),
+    hidden: Boolean(row.hidden_at),
   };
 }
 
@@ -33,7 +35,7 @@ function toSlate(row: SlateRow): Slate {
  * on the same row. First writer names it; later writers join it rather than
  * forking a near-duplicate. `copies` is then a real signal instead of noise.
  */
-export async function createSlate(draft: SlateDraft): Promise<Slate> {
+export async function createSlate(draft: SlateDraft): Promise<{ slate: Slate; created: boolean }> {
   const db = sql();
   const id = slateId(draft.legs);
   const legs = canonicalize(draft.legs);
@@ -46,11 +48,47 @@ export async function createSlate(draft: SlateDraft): Promise<Slate> {
       ${draft.creatorFid ?? null},
       ${draft.creatorName ?? null}
     )
-    on conflict (id) do update set id = excluded.id
+    on conflict (id) do update set
+      -- Adopt the creator only where there isn't one. The previous version set
+      -- id = excluded.id, a no-op that silently discarded the new creator and
+      -- still answered 201 -- so a second person composing the same basket was
+      -- told they had made it, never owned it, and never saw it under "slates
+      -- you made". Coalescing lets an unowned row find an owner without
+      -- letting anyone take one that already has one.
+      creator_address = coalesce(slates.creator_address, excluded.creator_address),
+      creator_fid     = coalesce(slates.creator_fid, excluded.creator_fid),
+      creator_name    = coalesce(slates.creator_name, excluded.creator_name),
+      -- Composing a basket that someone had unlisted brings it back. A hidden
+      -- row must not censor a composition for everyone forever.
+      hidden_at       = null
+    returning *, (xmax = 0) as inserted
+  `) as (SlateRow & { inserted: boolean })[];
+
+  // `xmax = 0` is true only for a genuine insert, which is how the caller can
+  // tell "you made this" from "this already existed and you joined it".
+  return { slate: toSlate(rows[0]), created: rows[0].inserted === true };
+}
+
+/**
+ * Remove a slate from the public feed.
+ *
+ * A soft hide, never a delete: three tables cascade from `slates`, and dropping
+ * `buy_events` would destroy the idempotency guard that stops a transaction
+ * hash being replayed to inflate a holder count. Hiding also keeps existing
+ * holders' history and keeps every shared link working — an unlist is the
+ * creator withdrawing a basket from the feed, not erasing an object other
+ * people may hold.
+ *
+ * The address must already have been proved by signature; this only matches it.
+ */
+export async function hideSlate(id: string, owner: string): Promise<Slate | null> {
+  const db = sql();
+  const rows = (await db`
+    update slates set hidden_at = now()
+    where id = ${id} and creator_address = ${owner.toLowerCase()} and hidden_at is null
     returning *
   `) as SlateRow[];
-
-  return toSlate(rows[0]);
+  return rows[0] ? toSlate(rows[0]) : null;
 }
 
 export async function getSlate(id: string): Promise<Slate | null> {
@@ -68,6 +106,7 @@ export async function listTrending(limit = 20): Promise<Slate[]> {
   const db = sql();
   const rows = (await db`
     select * from slates
+    where hidden_at is null
     order by copies desc, created_at desc
     limit ${limit}
   `) as SlateRow[];
