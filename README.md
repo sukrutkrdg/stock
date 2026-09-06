@@ -113,8 +113,14 @@ npm run db:migrate
    object is the signal.
 5. **Preview.** Paste the URL into [base.dev/preview](https://base.dev/preview)
    to check the embed card and that the app launches.
-6. **Publish.** Post the URL in Base App. The `fc:miniapp` tag turns the post
-   into a launchable card.
+6. **Publish.** Complete the app's icon, screenshots and thumbnail on base.dev.
+   That is what lists it in Base App's Mini App directory.
+
+   Note: Base App removed its Farcaster-powered feed in 2026 to focus on
+   trading, so there is no longer a feed inside it to post a link into.
+   Distribution there is the directory. The `fc:miniapp` embed still turns a
+   shared link into a launchable card in Farcaster itself, which is where the
+   copy-a-slate loop lives.
 
 ---
 

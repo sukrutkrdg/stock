@@ -20,7 +20,7 @@ export function SlateView({ slate }: { slate: Slate }) {
   const { address, isConnected, isConnecting, stuck, connect, disconnect, connectError } =
     useWallet();
   const { setMiniAppReady, isMiniAppReady, context } = useMiniKit();
-  const { composeCast } = useComposeCast();
+  const { composeCastAsync } = useComposeCast();
   const addFrame = useAddFrame();
   const market = useMarket();
   const buySlate = useBuySlate();
@@ -81,11 +81,50 @@ export function SlateView({ slate }: { slate: Slate }) {
     }
   }
 
-  function onShare() {
-    composeCast({
-      text: `${slate.name} — ${slate.legs.map((leg) => leg.symbol.replace(/c$/, "")).join(" · ")}. Built on Slate.`,
-      embeds: [`${window.location.origin}/s/${slate.id}`],
-    });
+  const [shared, setShared] = useState<string | null>(null);
+
+  /**
+   * Share a slate, by whatever route the host actually offers.
+   *
+   * Composing a cast used to be the whole distribution story: post a slate,
+   * someone taps the card, they own the same basket. Base App has since removed
+   * its Farcaster feed to focus on trading, so inside it there is no longer a
+   * feed to post into and `composeCast` may simply not be supported.
+   *
+   * So the composer is attempted and then fallen back on rather than assumed —
+   * a cast where a feed exists, the system share sheet on a phone, the
+   * clipboard everywhere else. A share button that silently does nothing is
+   * worse than one that copies a link.
+   */
+  async function onShare() {
+    const url = `${window.location.origin}/s/${slate.id}`;
+    const text = `${slate.name} — ${slate.legs
+      .map((leg) => leg.symbol.replace(/c$/, ""))
+      .join(" · ")}. Built on Slate.`;
+
+    try {
+      await composeCastAsync({ text, embeds: [url] });
+      return;
+    } catch {
+      // No feed in this host; fall through to the platform's own sharing.
+    }
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title: slate.name, text, url });
+        return;
+      }
+    } catch {
+      // A cancelled share sheet lands here too; the clipboard is still useful.
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setShared("Link copied");
+      setTimeout(() => setShared(null), 2500);
+    } catch {
+      setShared(url);
+    }
   }
 
   return (
@@ -280,7 +319,7 @@ export function SlateView({ slate }: { slate: Slate }) {
         style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
       >
         <div className="mx-auto flex w-full max-w-lg gap-2">
-          <Button variant="secondary" onClick={onShare} aria-label="Share this slate">
+          <Button variant="secondary" onClick={() => void onShare()} aria-label="Share this slate">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
               <path
                 d="M12 15V4m0 0L8 8m4-4 4 4M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14"
@@ -336,6 +375,14 @@ export function SlateView({ slate }: { slate: Slate }) {
           fid={context?.user?.fid}
           onClose={() => setScheduling(false)}
         />
+      )}
+
+      {shared && (
+        <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center">
+          <span className="rounded-full border border-line bg-surface px-4 py-2 text-[13px] text-muted shadow-lg">
+            {shared}
+          </span>
+        </div>
       )}
 
       {stage === "confirming" && (
