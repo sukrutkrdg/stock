@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAddFrame } from "@coinbase/onchainkit/minikit";
 import { Banner, Button } from "./ui";
 import { formatUsd } from "@/lib/format";
+import { parseAmount, sanitizeAmount } from "@/lib/amount";
 import type { Slate } from "@/lib/slate";
 
 const PERIODS = [
@@ -36,7 +37,8 @@ export function ScheduleSheet({
   onClose: () => void;
 }) {
   const addFrame = useAddFrame();
-  const [amount, setAmount] = useState(defaultAmount);
+  const [amountText, setAmountText] = useState(String(defaultAmount));
+  const amount = parseAmount(amountText);
   const [periodDays, setPeriodDays] = useState(7);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,14 +112,15 @@ export function ScheduleSheet({
             <div className="mt-2 flex items-baseline gap-2 rounded-xl border border-line bg-raised px-3.5 py-3">
               <span className="text-[20px] font-bold text-faint">$</span>
               <input
-                type="number"
+                type="text"
                 inputMode="decimal"
-                min={5}
-                step={5}
-                value={amount}
-                onChange={(event) => setAmount(Number(event.target.value))}
+                enterKeyHint="done"
+                value={amountText}
+                onChange={(event) => setAmountText(sanitizeAmount(event.target.value))}
+                onFocus={(event) => event.currentTarget.select()}
+                placeholder="0"
                 aria-label="Recurring amount in USDC"
-                className="w-full bg-transparent text-[24px] font-bold tabular-nums outline-none"
+                className="w-full bg-transparent text-[24px] font-bold tabular-nums outline-none placeholder:text-faint"
               />
               <span className="text-[12px] text-faint">USDC</span>
             </div>

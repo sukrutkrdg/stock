@@ -12,6 +12,7 @@ import { useBuySlate } from "@/hooks/useBuySlate";
 import { useWallet } from "@/hooks/useWallet";
 import { useUnlistSlate } from "@/hooks/useSlates";
 import { formatPercent, formatShares, formatUsd, formatWeight } from "@/lib/format";
+import { parseAmount, sanitizeAmount } from "@/lib/amount";
 import type { Slate } from "@/lib/slate";
 
 const PRESETS = [25, 50, 100, 250];
@@ -29,10 +30,17 @@ export function SlateView({ slate }: { slate: Slate }) {
 
   // A schedule reminder deep-links in with the amount already chosen, so the
   // user lands on a filled-in buy rather than re-entering what they set up.
-  const [amount, setAmount] = useState(() => {
+  // Held as text so the field can be empty while it is being retyped.
+  const [amountText, setAmountText] = useState(() => {
     const seeded = Number(params.get("amount"));
-    return Number.isFinite(seeded) && seeded > 0 ? seeded : 50;
+    return Number.isFinite(seeded) && seeded > 0 ? String(seeded) : "50";
   });
+  const amount = parseAmount(amountText);
+
+  function changeAmount(next: string) {
+    setAmountText(sanitizeAmount(next));
+    buySlate.reset();
+  }
   const [scheduling, setScheduling] = useState(false);
   // Reset with every new quote: consent is to the numbers on screen, not a
   // preference the user set once and forgot.
@@ -207,17 +215,18 @@ export function SlateView({ slate }: { slate: Slate }) {
           <div className="flex items-baseline gap-2">
             <span className="text-[28px] font-bold leading-none text-faint">$</span>
             <input
-              type="number"
+              // Text, not number: a number input adds spinners, rejects a
+              // partially typed value, and on some keypads will not let the
+              // field be emptied at all.
+              type="text"
               inputMode="decimal"
-              min={5}
-              step={5}
-              value={amount}
-              onChange={(event) => {
-                setAmount(Number(event.target.value));
-                buySlate.reset();
-              }}
+              enterKeyHint="done"
+              value={amountText}
+              onChange={(event) => changeAmount(event.target.value)}
+              onFocus={(event) => event.currentTarget.select()}
+              placeholder="0"
               aria-label="Amount in USDC"
-              className="w-full bg-transparent text-[34px] font-bold leading-none tabular-nums outline-none"
+              className="w-full bg-transparent text-[34px] font-bold leading-none tabular-nums outline-none placeholder:text-faint"
             />
             <span className="shrink-0 text-[13px] font-medium text-faint">USDC</span>
           </div>
@@ -227,10 +236,7 @@ export function SlateView({ slate }: { slate: Slate }) {
               <button
                 key={preset}
                 type="button"
-                onClick={() => {
-                  setAmount(preset);
-                  buySlate.reset();
-                }}
+                onClick={() => changeAmount(String(preset))}
                 className={`flex-1 rounded-lg border py-2 text-[13px] font-semibold tabular-nums transition ${
                   amount === preset
                     ? "border-brand bg-brand-soft text-text"

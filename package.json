@@ -10,7 +10,7 @@
     "verify:onchain": "node scripts/verify-onchain.mjs",
     "assets": "node scripts/make-assets.mjs",
     "db:migrate": "dotenv -e .env.local -- node scripts/migrate.mjs",
-    "test": "tsx --test scripts/test-slate.mts scripts/test-compose.mts scripts/test-sell.mts",
+    "test": "tsx --test scripts/test-slate.mts scripts/test-compose.mts scripts/test-sell.mts scripts/test-amount.mts",
     "verify:route": "tsx scripts/verify-route.mts",
     "screenshots": "node scripts/make-screenshots.mjs",
     "verify:manifest": "node scripts/verify-manifest.mjs",
