@@ -239,7 +239,26 @@ export default function YouPage() {
 
       {(created.data?.length ?? 0) > 0 && (
         <>
-          <SectionTitle>Slates you made</SectionTitle>
+          <SectionTitle
+            action={
+              created.data!.some((slate) => !slate.hidden) ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    unlist.mutate(
+                      created.data!.filter((slate) => !slate.hidden).map((slate) => slate.id),
+                    )
+                  }
+                  disabled={unlist.isPending}
+                  className="px-2 py-1 text-[13px] font-semibold text-brand disabled:opacity-40"
+                >
+                  {unlist.isPending ? "Signing…" : "Unlist all"}
+                </button>
+              ) : undefined
+            }
+          >
+            Slates you made
+          </SectionTitle>
           <div className="space-y-2 px-4">
             {created.data!.map((slate) => (
               <div key={slate.id}>

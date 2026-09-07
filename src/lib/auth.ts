@@ -34,15 +34,24 @@ export type SignedIntent = {
  * used for another. The timestamp bounds replay in time; the slate id bounds it
  * in scope.
  */
-export function unlistMessage(slateId: string, address: string, issuedAt: string): string {
+export function unlistMessage(
+  slateIds: string[],
+  address: string,
+  issuedAt: string,
+): string {
+  // Sorted so the same set of baskets always produces the same bytes whatever
+  // order the UI collected them in — the server rebuilds this string to check
+  // the signature and has to arrive at exactly the same one.
+  const ids = [...slateIds].sort();
   return [
     "Slate",
     "",
-    `Unlist basket: ${slateId}`,
+    ids.length === 1 ? `Unlist basket: ${ids[0]}` : `Unlist ${ids.length} baskets:`,
+    ...(ids.length === 1 ? [] : ids.map((id) => `  ${id}`)),
     `Wallet: ${address.toLowerCase()}`,
     `Time: ${issuedAt}`,
     "",
-    "This removes the basket from the public feed. It does not move any funds.",
+    "This removes them from the public feed. It does not move any funds.",
   ].join("\n");
 }
 
@@ -53,7 +62,7 @@ export function unlistMessage(slateId: string, address: string, issuedAt: string
  * checksummed string against the lowercased column.
  */
 export async function verifyUnlistIntent(
-  slateId: string,
+  slateIds: string[],
   intent: SignedIntent,
 ): Promise<Address> {
   if (!intent?.address || !isAddress(intent.address)) {
@@ -73,8 +82,15 @@ export async function verifyUnlistIntent(
     throw new AuthError("That signature has expired. Try again.");
   }
 
+  if (!Array.isArray(slateIds) || slateIds.length === 0) {
+    throw new AuthError("Nothing was selected.");
+  }
+
   const address = intent.address as Address;
-  const message = unlistMessage(slateId, address, intent.issuedAt);
+  // One signature can cover several baskets, but only the ones it names: the
+  // ids are part of the signed bytes, so a signature taken from one request
+  // cannot be replayed against a different set.
+  const message = unlistMessage(slateIds, address, intent.issuedAt);
 
   let valid = false;
   try {

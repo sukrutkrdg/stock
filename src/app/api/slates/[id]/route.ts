@@ -49,7 +49,7 @@ export async function DELETE(request: Request, ctx: RouteContext<"/api/slates/[i
   }
 
   try {
-    const owner = await verifyUnlistIntent(id, body as never);
+    const owner = await verifyUnlistIntent([id], body as never);
 
     const slate = await getSlate(id);
     if (!slate) return Response.json({ error: "No such slate." }, { status: 404 });

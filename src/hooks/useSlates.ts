@@ -75,20 +75,24 @@ export function useUnlistSlate() {
   const { signMessageAsync } = useSignMessage();
 
   return useMutation({
-    mutationFn: async (slateId: string) => {
+    // Takes a list so clearing several baskets costs one wallet prompt instead
+    // of one per basket. A single id is just a list of one.
+    mutationFn: async (slateIds: string | string[]) => {
       if (!address) throw new Error("Connect a wallet first.");
+      const ids = Array.isArray(slateIds) ? slateIds : [slateIds];
+      if (ids.length === 0) throw new Error("Nothing selected.");
 
       const issuedAt = new Date().toISOString();
       const signature = await signMessageAsync({
-        message: unlistMessage(slateId, address, issuedAt),
+        message: unlistMessage(ids, address, issuedAt),
       });
 
-      const response = await fetch(`/api/slates/${encodeURIComponent(slateId)}`, {
-        method: "DELETE",
+      const response = await fetch("/api/slates/unlist", {
+        method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ address, signature, issuedAt }),
+        body: JSON.stringify({ ids, address, signature, issuedAt }),
       });
-      return json<{ slate: Slate; alreadyHidden: boolean }>(response);
+      return json<{ unlisted: string[]; refused: { id: string; reason: string }[] }>(response);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["slates"] }),
   });

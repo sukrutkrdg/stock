@@ -10,6 +10,7 @@ import { ScheduleSheet } from "./ScheduleSheet";
 import { useMarket, tickerMap } from "@/hooks/useMarket";
 import { useBuySlate } from "@/hooks/useBuySlate";
 import { useWallet } from "@/hooks/useWallet";
+import { useUnlistSlate } from "@/hooks/useSlates";
 import { formatPercent, formatShares, formatUsd, formatWeight } from "@/lib/format";
 import type { Slate } from "@/lib/slate";
 
@@ -24,6 +25,7 @@ export function SlateView({ slate }: { slate: Slate }) {
   const addFrame = useAddFrame();
   const market = useMarket();
   const buySlate = useBuySlate();
+  const unlist = useUnlistSlate();
 
   // A schedule reminder deep-links in with the amount already chosen, so the
   // user lands on a filled-in buy rather than re-entering what they set up.
@@ -335,6 +337,33 @@ export function SlateView({ slate }: { slate: Slate }) {
           </Banner>
         </div>
       )}
+
+      {address &&
+        slate.creatorAddress?.toLowerCase() === address.toLowerCase() &&
+        !slate.hidden && (
+          <div className="px-4 pt-4">
+            <div className="flex items-center justify-between rounded-xl border border-line px-4 py-3">
+              <span className="text-[13px] text-muted">You made this basket.</span>
+              <button
+                type="button"
+                onClick={() => unlist.mutate(slate.id)}
+                disabled={unlist.isPending}
+                className="-mr-2 px-3 py-2 text-[13px] font-semibold text-muted transition hover:text-down disabled:opacity-40"
+              >
+                {unlist.isPending ? "Signing…" : "Unlist"}
+              </button>
+            </div>
+            {unlist.isSuccess && (
+              <p className="mt-2 text-[12px] text-faint">
+                Unlisted. It is out of the feed; this link still works and anyone holding it keeps
+                it.
+              </p>
+            )}
+            {unlist.error && (
+              <p className="mt-2 text-[12px] text-down">{unlist.error.message}</p>
+            )}
+          </div>
+        )}
 
       <div className="px-4 pt-4">
         <button
