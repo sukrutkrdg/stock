@@ -8,9 +8,16 @@ import type { Slate } from "@/lib/slate";
 import type { Ticker } from "@/lib/market";
 
 /**
- * A slate in the feed. The headline number is holders, not performance:
- * performance since inception would be a backtest dressed up as a track record,
- * and Slate does not have per-holder cost basis to make it honest.
+ * A slate in the feed.
+ *
+ * The headline number counts wallets that have bought this basket, ever — not
+ * wallets holding it now. Stock tokens are fungible, so nothing onchain says
+ * which basket a balance came from, and a wallet that sells cannot be told
+ * apart from one that never bought. Calling that "holders" would be a claim the
+ * data cannot support, so it says "bought".
+ *
+ * Performance since inception is deliberately absent: without a per-wallet cost
+ * basis it would be a backtest dressed up as a track record.
  */
 export function SlateCard({
   slate,
@@ -40,7 +47,7 @@ export function SlateCard({
         <div className="flex items-baseline justify-between gap-2">
           <h3 className="truncate text-[15px] font-semibold">{slate.name}</h3>
           <span className="shrink-0 text-[12px] tabular-nums text-faint">
-            {slate.copies} {slate.copies === 1 ? "holder" : "holders"}
+            {slate.copies} bought
           </span>
         </div>
 

@@ -32,9 +32,7 @@ export async function generateMetadata(props: PageProps<"/s/[id]">): Promise<Met
   return {
     title,
     description: slate
-      ? `A basket of ${slate.legs.length} tokenized stocks on Base. ${slate.copies} ${
-          slate.copies === 1 ? "holder" : "holders"
-        }.`
+      ? `A basket of ${slate.legs.length} tokenized stocks on Base. Bought by ${slate.copies}.`
       : "Baskets of tokenized stocks on Base.",
     openGraph: { title, url },
     other: {

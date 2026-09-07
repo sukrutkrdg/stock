@@ -130,6 +130,14 @@ export default function YouPage() {
         </Card>
       </div>
 
+      {(held.data?.length ?? 0) > 0 && (portfolio.data?.positions.length ?? 0) === 0 && (
+        <p className="px-5 pt-3 text-[11px] leading-relaxed text-faint">
+          These are baskets you have bought before, not positions you still hold — the stock tokens
+          are fungible, so nothing onchain says which basket a balance came from. What you actually
+          hold right now is the positions list above, and it is empty.
+        </p>
+      )}
+
       {(portfolio.data?.positions.length ?? 0) > 0 && (
         <>
           <SectionTitle
@@ -228,7 +236,7 @@ export default function YouPage() {
 
       {(held.data?.length ?? 0) > 0 && (
         <>
-          <SectionTitle>Slates you hold</SectionTitle>
+          <SectionTitle>Slates you have bought</SectionTitle>
           <div className="space-y-2 px-4">
             {held.data!.map((slate) => (
               <SlateCard key={slate.id} slate={slate} tickers={tickers} />

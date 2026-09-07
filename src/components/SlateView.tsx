@@ -154,7 +154,7 @@ export function SlateView({ slate }: { slate: Slate }) {
             {slate.name}
           </h1>
           <p className="mt-1 text-[13px] text-muted">
-            {copiesShown} {copiesShown === 1 ? "holder" : "holders"}
+            {copiesShown} bought
             {slate.creatorName ? ` · by ${slate.creatorName}` : ""}
           </p>
           {blended > 0 && (
@@ -341,7 +341,7 @@ export function SlateView({ slate }: { slate: Slate }) {
         <div className="px-4 pt-4">
           <Banner tone="info">
             <span className="font-semibold text-up">Bought.</span> {result.received.join(", ")}{" "}
-            landed in your wallet. You are holder #{copiesShown}.
+            landed in your wallet. That makes {copiesShown} {copiesShown === 1 ? "buyer" : "buyers"}.
           </Banner>
         </div>
       )}
