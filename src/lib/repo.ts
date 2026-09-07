@@ -227,6 +227,84 @@ export async function recordBuy(args: {
   return { recorded: true, firstTime, copies: rows[0]?.copies ?? 0 };
 }
 
+/**
+ * Record a verified sale. Idempotent on the transaction hash, like a buy.
+ *
+ * Nothing about a slate is stored: fungible tokens mean what left the wallet
+ * cannot be attributed to the basket it arrived in. The record is of positions
+ * closed.
+ */
+export async function recordSell(args: {
+  owner: string;
+  txHash: string;
+  symbols: string[];
+  proceedsUsdc: string;
+}): Promise<{ recorded: boolean }> {
+  const db = sql();
+  const rows = (await db`
+    insert into sell_events (tx_hash, owner, symbols, proceeds_usdc)
+    values (${args.txHash.toLowerCase()}, ${args.owner.toLowerCase()}, ${args.symbols}, ${args.proceedsUsdc})
+    on conflict (tx_hash) do nothing
+    returning tx_hash
+  `) as { tx_hash: string }[];
+  return { recorded: rows.length > 0 };
+}
+
+export type Activity = {
+  kind: "buy" | "sell";
+  txHash: string;
+  at: string;
+  amountUsdc: string;
+  /** Basket bought, when it was a buy. */
+  slateId: string | null;
+  slateName: string | null;
+  /** Tickers sold, when it was a sale. */
+  symbols: string[];
+};
+
+/**
+ * Everything this wallet has done through the app, newest first.
+ *
+ * Every row carries the transaction hash that proves it, because the app's own
+ * record of a trade is worth exactly as much as the link to the chain beside it.
+ */
+export async function listActivity(owner: string, limit = 20): Promise<Activity[]> {
+  const db = sql();
+  const address = owner.toLowerCase();
+
+  const rows = (await db`
+    select 'buy' as kind, b.tx_hash, b.created_at, b.amount_usdc,
+           b.slate_id, s.name as slate_name, array[]::text[] as symbols
+      from buy_events b left join slates s on s.id = b.slate_id
+     where b.owner = ${address}
+    union all
+    select 'sell' as kind, e.tx_hash, e.created_at, e.proceeds_usdc,
+           null as slate_id, null as slate_name, e.symbols
+      from sell_events e
+     where e.owner = ${address}
+     order by created_at desc
+     limit ${limit}
+  `) as {
+    kind: "buy" | "sell";
+    tx_hash: string;
+    created_at: string | Date;
+    amount_usdc: string;
+    slate_id: string | null;
+    slate_name: string | null;
+    symbols: string[] | null;
+  }[];
+
+  return rows.map((row) => ({
+    kind: row.kind,
+    txHash: row.tx_hash,
+    at: new Date(row.created_at).toISOString(),
+    amountUsdc: row.amount_usdc,
+    slateId: row.slate_id,
+    slateName: row.slate_name,
+    symbols: row.symbols ?? [],
+  }));
+}
+
 export type DcaPlan = {
   id: string;
   owner: string;

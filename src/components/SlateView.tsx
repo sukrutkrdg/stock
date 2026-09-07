@@ -341,7 +341,15 @@ export function SlateView({ slate }: { slate: Slate }) {
         <div className="px-4 pt-4">
           <Banner tone="info">
             <span className="font-semibold text-up">Bought.</span> {result.received.join(", ")}{" "}
-            landed in your wallet. That makes {copiesShown} {copiesShown === 1 ? "buyer" : "buyers"}.
+            landed in your wallet.{" "}
+            <a
+              href={`https://basescan.org/tx/${result.txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-brand"
+            >
+              View on Basescan
+            </a>
           </Banner>
         </div>
       )}

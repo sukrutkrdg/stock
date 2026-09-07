@@ -64,6 +64,19 @@ const statements = [
    )`,
   `create index if not exists buy_events_owner_idx on buy_events (owner, created_at desc)`,
 
+  // Sells, kept separately rather than folded into buy_events: a sell has no
+  // slate to belong to. Stock tokens are fungible, so what leaves a wallet
+  // cannot be attributed to the basket it arrived in — the record is of
+  // positions closed, not of a basket exited.
+  `create table if not exists sell_events (
+     tx_hash      text primary key,
+     owner        text not null,
+     symbols      text[] not null,
+     proceeds_usdc numeric(20,6) not null default 0,
+     created_at   timestamptz not null default now()
+   )`,
+  `create index if not exists sell_events_owner_idx on sell_events (owner, created_at desc)`,
+
   `create table if not exists dca_plans (
      id               text primary key,
      owner            text not null,

@@ -39,6 +39,12 @@ pool to the underlying, so the app shows every leg's distance from the last
 close and takes a separate, deliberate confirmation before signing. Informed,
 not blocked.
 
+**Every trade links to the chain.** Buys and sells are both verified against
+their receipt before they are recorded, and each row in the activity list
+carries its Basescan link — the app's record of a trade is worth exactly as much
+as the link beside it. First live round trip: \$10.00 in, \$9.9976 out, a 0.024%
+cost for the pair.
+
 **Holder counts are verified onchain.** A buy only increments a slate's counter
 after the app reads the transaction receipt on Base and confirms the stock
 tokens landed in that wallet. Recording is idempotent on the transaction hash,

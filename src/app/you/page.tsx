@@ -7,6 +7,7 @@ import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { useSlatesFor, useUnlistSlate } from "@/hooks/useSlates";
 import { useMarket, tickerMap } from "@/hooks/useMarket";
+import { Activity } from "@/components/Activity";
 import { SellSheet } from "@/components/SellSheet";
 import { SlateCard } from "@/components/SlateCard";
 import { StockChip } from "@/components/StockChip";
@@ -129,6 +130,8 @@ export default function YouPage() {
           </p>
         </Card>
       </div>
+
+      {address && <Activity owner={address} />}
 
       {(held.data?.length ?? 0) > 0 && (portfolio.data?.positions.length ?? 0) === 0 && (
         <p className="px-5 pt-3 text-[11px] leading-relaxed text-faint">

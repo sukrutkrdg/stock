@@ -84,6 +84,13 @@ export function useSellPositions() {
         });
 
         setTxHash(hash ?? null);
+
+        // Recorded after the fact and verified server-side, so a failure here
+        // never costs the user a sale that already settled onchain.
+        if (hash) {
+          await postJson("/api/sells", { owner: address, txHash: hash }).catch(() => null);
+        }
+
         setStage("done");
         return hash ?? null;
       } catch (cause) {
