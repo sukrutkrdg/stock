@@ -91,6 +91,45 @@ export async function hideSlate(id: string, owner: string): Promise<Slate | null
   return rows[0] ? toSlate(rows[0]) : null;
 }
 
+/**
+ * Remove a basket the caller created: delete it outright when nothing depends
+ * on it, otherwise withdraw it from the feed.
+ *
+ * The cascade from `slates` is only dangerous once a basket has been bought.
+ * `buy_events` is what makes recording a buy idempotent, so deleting rows there
+ * would let an old transaction hash be replayed to re-inflate a holder count —
+ * but a basket nobody has ever held has no such rows to lose, and leaving the
+ * creator's own discarded drafts on their screen forever is its own kind of
+ * broken.
+ *
+ * Every condition lives in the statement rather than in a check beforehand, so
+ * a buy landing between the check and the delete cannot slip through: the
+ * delete simply matches nothing and the basket is unlisted instead.
+ */
+export async function removeSlate(
+  id: string,
+  owner: string,
+): Promise<{ removed: "deleted" | "unlisted" | null }> {
+  const db = sql();
+  const address = owner.toLowerCase();
+
+  const deleted = (await db`
+    delete from slates
+    where id = ${id}
+      and creator_address = ${address}
+      and copies = 0
+      and not exists (select 1 from slate_holders where slate_id = ${id})
+      and not exists (select 1 from buy_events where slate_id = ${id})
+      and not exists (select 1 from dca_plans where slate_id = ${id} and status = 'active')
+    returning id
+  `) as { id: string }[];
+
+  if (deleted.length > 0) return { removed: "deleted" };
+
+  const hidden = await hideSlate(id, address);
+  return { removed: hidden ? "unlisted" : null };
+}
+
 export async function getSlate(id: string): Promise<Slate | null> {
   const db = sql();
   const rows = (await db`select * from slates where id = ${id}`) as SlateRow[];

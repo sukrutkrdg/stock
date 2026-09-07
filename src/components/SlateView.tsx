@@ -340,7 +340,7 @@ export function SlateView({ slate }: { slate: Slate }) {
 
       {address &&
         slate.creatorAddress?.toLowerCase() === address.toLowerCase() &&
-        !slate.hidden && (
+        true && (
           <div className="px-4 pt-4">
             <div className="flex items-center justify-between rounded-xl border border-line px-4 py-3">
               <span className="text-[13px] text-muted">You made this basket.</span>
@@ -350,13 +350,13 @@ export function SlateView({ slate }: { slate: Slate }) {
                 disabled={unlist.isPending}
                 className="-mr-2 px-3 py-2 text-[13px] font-semibold text-muted transition hover:text-down disabled:opacity-40"
               >
-                {unlist.isPending ? "Signing…" : "Unlist"}
+                {unlist.isPending ? "Signing…" : "Remove"}
               </button>
             </div>
             {unlist.isSuccess && (
               <p className="mt-2 text-[12px] text-faint">
-                Unlisted. It is out of the feed; this link still works and anyone holding it keeps
-                it.
+                Removed. If nobody held it, it is gone; otherwise it is out of the feed and
+                holders keep it.
               </p>
             )}
             {unlist.error && (

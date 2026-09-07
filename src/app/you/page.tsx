@@ -241,18 +241,14 @@ export default function YouPage() {
         <>
           <SectionTitle
             action={
-              created.data!.some((slate) => !slate.hidden) ? (
+              created.data!.length > 0 ? (
                 <button
                   type="button"
-                  onClick={() =>
-                    unlist.mutate(
-                      created.data!.filter((slate) => !slate.hidden).map((slate) => slate.id),
-                    )
-                  }
+                  onClick={() => unlist.mutate(created.data!.map((slate) => slate.id))}
                   disabled={unlist.isPending}
                   className="px-2 py-1 text-[13px] font-semibold text-brand disabled:opacity-40"
                 >
-                  {unlist.isPending ? "Signing…" : "Unlist all"}
+                  {unlist.isPending ? "Signing…" : "Remove all"}
                 </button>
               ) : undefined
             }
@@ -267,19 +263,15 @@ export default function YouPage() {
                   <span className="text-[11px] text-faint">
                     {slate.hidden ? "Unlisted — reachable by link only" : "In the public feed"}
                   </span>
-                  {!slate.hidden && (
-                    <button
-                      type="button"
-                      onClick={() => unlist.mutate(slate.id)}
-                      disabled={unlist.isPending}
-                      aria-label={`Unlist ${slate.name}`}
-                      className="-mr-1 px-3 py-2 text-[12px] text-muted transition hover:text-down disabled:opacity-40"
-                    >
-                      {unlist.isPending && unlist.variables === slate.id
-                        ? "Signing…"
-                        : "Unlist"}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => unlist.mutate(slate.id)}
+                    disabled={unlist.isPending}
+                    aria-label={`Remove ${slate.name}`}
+                    className="-mr-1 px-3 py-2 text-[12px] text-muted transition hover:text-down disabled:opacity-40"
+                  >
+                    {unlist.isPending && unlist.variables === slate.id ? "Signing…" : "Remove"}
+                  </button>
                 </div>
               </div>
             ))}
@@ -290,9 +282,9 @@ export default function YouPage() {
             </div>
           )}
           <p className="px-5 pt-2 text-[11px] leading-relaxed text-faint">
-            Unlisting removes a basket from the feed. Anyone already holding it keeps it and
-            existing links keep working — a basket is shared, so it is withdrawn rather than
-            erased. Your wallet signs the request; nothing moves onchain.
+            A basket nobody holds is deleted outright. One that someone has bought is withdrawn
+            from the feed instead, because it is theirs too — they keep it and existing links keep
+            working. Your wallet signs the request; nothing moves onchain.
           </p>
         </>
       )}

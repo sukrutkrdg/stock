@@ -1,4 +1,4 @@
-import { getSlate, hideSlate } from "@/lib/repo";
+import { getSlate, removeSlate } from "@/lib/repo";
 import { databaseConfigured } from "@/lib/db";
 import { AuthError, verifyUnlistIntent } from "@/lib/auth";
 
@@ -30,6 +30,7 @@ export async function POST(request: Request) {
   try {
     const owner = await verifyUnlistIntent(ids, body as never);
 
+    const deleted: string[] = [];
     const unlisted: string[] = [];
     const refused: { id: string; reason: string }[] = [];
 
@@ -47,25 +48,21 @@ export async function POST(request: Request) {
         refused.push({ id, reason: "not yours" });
         continue;
       }
-      if (slate.hidden) {
-        // Already in the desired state; not a failure to report back.
-        unlisted.push(id);
-        continue;
-      }
-
-      const hidden = await hideSlate(id, owner);
-      if (hidden) unlisted.push(id);
-      else refused.push({ id, reason: "could not be unlisted" });
+      const { removed } = await removeSlate(id, owner);
+      if (removed === "deleted") deleted.push(id);
+      else if (removed === "unlisted") unlisted.push(id);
+      else if (slate.hidden) unlisted.push(id); // already withdrawn
+      else refused.push({ id, reason: "could not be removed" });
     }
 
-    if (unlisted.length === 0) {
+    if (deleted.length === 0 && unlisted.length === 0) {
       return Response.json(
-        { error: refused[0]?.reason ?? "Nothing could be unlisted.", refused },
+        { error: refused[0]?.reason ?? "Nothing could be removed.", refused },
         { status: 403 },
       );
     }
 
-    return Response.json({ unlisted, refused });
+    return Response.json({ deleted, unlisted, refused });
   } catch (error) {
     if (error instanceof AuthError) {
       return Response.json({ error: error.message }, { status: 401 });

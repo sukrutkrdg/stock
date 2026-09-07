@@ -46,12 +46,13 @@ export function unlistMessage(
   return [
     "Slate",
     "",
-    ids.length === 1 ? `Unlist basket: ${ids[0]}` : `Unlist ${ids.length} baskets:`,
+    ids.length === 1 ? `Remove basket: ${ids[0]}` : `Remove ${ids.length} baskets:`,
     ...(ids.length === 1 ? [] : ids.map((id) => `  ${id}`)),
     `Wallet: ${address.toLowerCase()}`,
     `Time: ${issuedAt}`,
     "",
-    "This removes them from the public feed. It does not move any funds.",
+    "Deletes them if nobody holds them, otherwise withdraws them from the feed.",
+    "It does not move any funds.",
   ].join("\n");
 }
 
