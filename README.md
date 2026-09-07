@@ -29,10 +29,15 @@ token is not permanently one share — a corporate action moves the multiplier
 while raw balances stay put. Every share figure in the app goes through
 `scaledBalanceOf` / the multiplier, never `balanceOf` alone.
 
-**It tells you when the market is closed.** Chainlink's equity feeds run 24/5,
-so on a weekend the last round is legitimately hours old. Slate labels that
-state and refuses to quote into it, rather than showing a stale number that
-looks live.
+**It tells you when the market is closed — and still lets you trade.**
+Chainlink's equity feeds run 24/5, so out of hours the last round is
+legitimately hours old. The pools never stop, though, and refusing to quote
+would re-impose the market-hours limit that putting equities onchain exists to
+remove: someone in another timezone is not doing anything wrong by trading at
+midnight. What is genuinely different is that no arbitrage is anchoring the
+pool to the underlying, so the app shows every leg's distance from the last
+close and takes a separate, deliberate confirmation before signing. Informed,
+not blocked.
 
 **Holder counts are verified onchain.** A buy only increments a slate's counter
 after the app reads the transaction receipt on Base and confirms the stock

@@ -32,6 +32,9 @@ export function SlateView({ slate }: { slate: Slate }) {
     return Number.isFinite(seeded) && seeded > 0 ? seeded : 50;
   });
   const [scheduling, setScheduling] = useState(false);
+  // Reset with every new quote: consent is to the numbers on screen, not a
+  // preference the user set once and forgot.
+  const [acceptedOffHours, setAcceptedOffHours] = useState(false);
   const [copiesShown, setCopiesShown] = useState(slate.copies);
 
   useEffect(() => {
@@ -52,6 +55,7 @@ export function SlateView({ slate }: { slate: Slate }) {
 
   async function onPreview() {
     try {
+      setAcceptedOffHours(false);
       await buySlate.preview({ legs: slate.legs, budgetUsdc: amount });
     } catch {
       // The hook already surfaced the message; nothing to add here.
@@ -152,8 +156,8 @@ export function SlateView({ slate }: { slate: Slate }) {
       <div className="space-y-2 px-4 pt-5">
         {marketClosed && (
           <Banner tone="warn">
-            The equity market is closed. Prices are last-close and buys are paused until the
-            Chainlink feeds resume.
+            The equity market is closed, so these prices are the last close. The pools still
+            trade — you can buy now, at whatever the pool quotes.
           </Banner>
         )}
         {untradable.length > 0 && (
@@ -278,6 +282,36 @@ export function SlateView({ slate }: { slate: Slate }) {
         </>
       )}
 
+      {quote && quote.marketClosed && (
+        <div className="px-4 pt-4">
+          <div className="rounded-xl border border-warn/30 bg-warn/10 p-3.5">
+            <p className="text-[13px] leading-snug text-warn">
+              <span className="font-semibold">Trading outside market hours.</span> Nothing is
+              arbitraging these pools against the underlying right now, so the price can drift and
+              a move in the stock will not be reflected until the feeds resume.
+            </p>
+            <p className="mt-2 text-[12px] tnum text-warn/80">
+              Furthest from last close:{" "}
+              {(() => {
+                const worst = quote.legs.reduce((a, b) =>
+                  Math.abs(b.premiumPercent) > Math.abs(a.premiumPercent) ? b : a,
+                );
+                return `${worst.ticker} ${formatPercent(worst.premiumPercent, true)}`;
+              })()}
+            </p>
+            <label className="mt-3 flex items-start gap-2.5 text-[13px] text-text">
+              <input
+                type="checkbox"
+                checked={acceptedOffHours}
+                onChange={(event) => setAcceptedOffHours(event.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-brand)]"
+              />
+              I understand I am buying at the pool price, not the last close.
+            </label>
+          </div>
+        </div>
+      )}
+
       {(error || connectError || stuck) && (
         <div className="space-y-3 px-4 pt-4">
           <Banner tone="error">
@@ -337,14 +371,21 @@ export function SlateView({ slate }: { slate: Slate }) {
               Buy again
             </Button>
           ) : quote ? (
-            <Button className="flex-1" onClick={onBuy} loading={busy}>
+            <Button
+              className="flex-1"
+              onClick={onBuy}
+              loading={busy}
+              disabled={quote.marketClosed && !acceptedOffHours}
+            >
               {stage === "signing"
                 ? "Confirm in your wallet"
                 : stage === "confirming"
                   ? "Confirming…"
                   : stage === "recording"
                     ? "Almost there…"
-                    : `Buy ${formatUsd(Number(quote.spentUsdc) / 1e6)}`}
+                    : quote.marketClosed
+                      ? `Buy at pool price · ${formatUsd(Number(quote.spentUsdc) / 1e6)}`
+                      : `Buy ${formatUsd(Number(quote.spentUsdc) / 1e6)}`}
             </Button>
           ) : !isConnected ? (
             <Button className="flex-1" onClick={onConnect} loading={isConnecting}>
@@ -355,12 +396,12 @@ export function SlateView({ slate }: { slate: Slate }) {
               className="flex-1"
               onClick={onPreview}
               loading={stage === "quoting"}
-              disabled={marketClosed || amount < 5}
+              disabled={amount < 5}
             >
-              {marketClosed
-                ? "Market closed"
-                : stage === "quoting"
-                  ? "Pricing…"
+              {stage === "quoting"
+                ? "Pricing…"
+                : marketClosed
+                  ? "Preview at pool price"
                   : "Preview route"}
             </Button>
           )}

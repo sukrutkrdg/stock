@@ -103,14 +103,17 @@ export async function POST(request: Request) {
     const market = await readMarket();
     const bySymbol = new Map(market.tickers.map((t) => [t.symbol, t]));
 
-    // The feeds run 24/5. Quoting into a closed market means routing against a
-    // price nobody can currently arbitrage, so we stop before the user signs.
-    if (market.marketClosed) {
-      return Response.json(
-        { error: "The equity market is closed. Slate buys resume when the Chainlink feeds do." },
-        { status: 409 },
-      );
-    }
+    // The feeds run 24/5, but the pools never stop. Refusing to quote out of
+    // hours re-imposes exactly the market-hours limit that putting equities
+    // onchain is meant to remove — someone in a different timezone is not doing
+    // anything wrong by trading at midnight.
+    //
+    // What is genuinely different off-hours is that no arbitrage is anchoring
+    // the pool to the underlying, so the price can drift and a gap in the stock
+    // will not be reflected. That is a fact to put in front of the user with
+    // numbers, not a reason to decide for them: the response carries
+    // `marketClosed` and every leg's distance from the last close, and the
+    // client requires a separate, deliberate confirmation before signing.
 
     const allocations = allocate(legs, budgetBase);
 

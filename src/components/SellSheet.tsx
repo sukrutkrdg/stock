@@ -37,6 +37,7 @@ export function SellSheet({
   const queryClient = useQueryClient();
   const sale = useSellPositions();
 
+  const [acceptedOffHours, setAcceptedOffHours] = useState(false);
   const [selected, setSelected] = useState<Record<string, number>>(() =>
     Object.fromEntries(
       (preselected?.length ? preselected : positions.map((p) => p.symbol)).map((symbol) => [
@@ -73,6 +74,7 @@ export function SellSheet({
 
   async function onPreview() {
     try {
+      setAcceptedOffHours(false);
       await sale.preview(chosen);
     } catch {
       // Surfaced by the hook.
@@ -220,6 +222,25 @@ export function SellSheet({
               </div>
             )}
 
+            {quote?.marketClosed && (
+              <div className="mt-4 rounded-xl border border-warn/30 bg-warn/10 p-3.5">
+                <p className="text-[13px] leading-snug text-warn">
+                  <span className="font-semibold">Selling outside market hours.</span> No arbitrage
+                  is holding these pools to the underlying right now, so what you receive is the
+                  pool price rather than the last close.
+                </p>
+                <label className="mt-3 flex items-start gap-2.5 text-[13px] text-text">
+                  <input
+                    type="checkbox"
+                    checked={acceptedOffHours}
+                    onChange={(event) => setAcceptedOffHours(event.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-brand)]"
+                  />
+                  I understand I am selling at the pool price.
+                </label>
+              </div>
+            )}
+
             {error && (
               <div className="mt-4">
                 <Banner tone="error">{error}</Banner>
@@ -237,7 +258,12 @@ export function SellSheet({
                 Cancel
               </Button>
               {quote ? (
-                <Button className="flex-1" onClick={onSell} loading={busy}>
+                <Button
+                  className="flex-1"
+                  onClick={onSell}
+                  loading={busy}
+                  disabled={quote.marketClosed && !acceptedOffHours}
+                >
                   {stage === "signing"
                     ? "Confirm in your wallet"
                     : stage === "confirming"

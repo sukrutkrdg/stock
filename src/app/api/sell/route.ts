@@ -79,12 +79,10 @@ export async function POST(request: Request) {
   try {
     const market = await readMarket();
 
-    if (market.marketClosed) {
-      return Response.json(
-        { error: "The equity market is closed. Sales resume when the Chainlink feeds do." },
-        { status: 409 },
-      );
-    }
+    // Off-hours selling is allowed for the same reason off-hours buying is: the
+    // pools are live and the alternative is trapping someone in a position
+    // until a market on another continent opens. The per-leg comparison against
+    // the last close is what makes that an informed choice.
 
     const requested = (input.positions ?? []).filter((p) => p && p.symbol);
     if (requested.length === 0) {

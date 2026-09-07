@@ -26,7 +26,8 @@ export function MarketStatus({ market }: { market: Market | undefined }) {
         <p className="text-[13px] leading-snug text-warn">
           <span className="font-semibold">Market closed.</span>{" "}
           <span className="opacity-80">
-            Showing the last round, {formatAge(freshest)}. Buys resume when the feeds do.
+            Showing the last close, {formatAge(freshest)}. The pools still trade — you can buy
+            at the pool price.
           </span>
         </p>
       </div>
