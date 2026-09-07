@@ -1,5 +1,6 @@
 import { encodeFunctionData, isAddress, parseAbi, type Address, type Hex } from "viem";
-import { USDC_ADDRESS, USDC_DECIMALS } from "@/lib/chain";
+import { publicClient, USDC_ADDRESS, USDC_DECIMALS } from "@/lib/chain";
+import { b20AssetAbi } from "@/lib/b20";
 import { allocate, validateLegs, SlateError, type Leg } from "@/lib/slate";
 import { routeSwap, spendersOf, RouterError, type BuiltSwap } from "@/lib/router";
 import { readMarket } from "@/lib/market";
@@ -100,8 +101,33 @@ export async function POST(request: Request) {
   const budgetBase = BigInt(Math.round(budget * 10 ** USDC_DECIMALS));
 
   try {
-    const market = await readMarket();
+    const [market, usdcBalance] = await Promise.all([
+      readMarket(),
+      publicClient().readContract({
+        address: USDC_ADDRESS,
+        abi: b20AssetAbi,
+        functionName: "balanceOf",
+        args: [taker],
+      }) as Promise<bigint>,
+    ]);
     const bySymbol = new Map(market.tickers.map((t) => [t.symbol, t]));
+
+    // Checked before building anything. Routing an unaffordable basket produces
+    // a perfectly valid batch that reverts the moment it is signed, and the
+    // user learns why from a wallet error rather than from the app.
+    if (usdcBalance < budgetBase) {
+      const held = Number(usdcBalance) / 10 ** USDC_DECIMALS;
+      return Response.json(
+        {
+          error:
+            held === 0
+              ? "This wallet holds no USDC on Base. Fund it first, then come back."
+              : `This wallet holds $${held.toFixed(2)} USDC on Base — $${budget.toFixed(2)} is needed.`,
+          usdcBalance: usdcBalance.toString(),
+        },
+        { status: 409 },
+      );
+    }
 
     // The feeds run 24/5, but the pools never stop. Refusing to quote out of
     // hours re-imposes exactly the market-hours limit that putting equities

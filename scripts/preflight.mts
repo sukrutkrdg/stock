@@ -61,15 +61,18 @@ line(
 const freshest = market.tickers.reduce((min, t) => Math.min(min, t.ageSeconds), Infinity);
 const lastRound = new Date(Date.now() - freshest * 1000);
 
-line(
-  !market.marketClosed,
-  "Equity market",
-  market.marketClosed
-    ? `closed — last Chainlink round ${(freshest / 3600).toFixed(1)}h ago (${lastRound
-        .toISOString()
-        .slice(0, 16)
-        .replace("T", " ")} UTC)`
-    : `open — freshest feed ${Math.round(freshest / 60)}m old`,
+// Not a blocker any more: the pools trade around the clock and the app lets
+// you buy at the pool price with the deviation shown. Still worth stating,
+// because it changes what the price on screen means.
+console.log(
+  `  note  ${"Equity market".padEnd(22)} ${
+    market.marketClosed
+      ? `closed — last close ${(freshest / 3600).toFixed(1)}h ago (${lastRound
+          .toISOString()
+          .slice(0, 16)
+          .replace("T", " ")} UTC). Buys route at the pool price.`
+      : `open — freshest feed ${Math.round(freshest / 60)}m old`
+  }`,
 );
 
 const tradable = market.tickers.filter((t) => t.tradable);
