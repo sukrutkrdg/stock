@@ -19,8 +19,8 @@ if (!wallet || !isAddress(wallet)) {
 }
 const address = wallet as Address;
 
-/** A $25 test buy, plus room for the spread on the way back out. */
-const TARGET_USDC = 30;
+/** The app's own floor for a buy. Below this nothing can be routed at all. */
+const MIN_BUY_USDC = 5;
 /** Base gas is cents; this is a comfortable float, not a requirement. */
 const TARGET_ETH = 0.001;
 
@@ -47,10 +47,15 @@ const line = (ok: boolean, label: string, detail: string) => {
 
 console.log(`\nPreflight for ${address}\n`);
 
+// Blocks only when nothing at all can be bought. Reporting a shortfall against
+// some notional test size just tells someone they cannot do a thing they never
+// asked to do.
 line(
-  usdcBalance >= 25,
+  usdcBalance >= MIN_BUY_USDC,
   "USDC on Base",
-  `${usdcBalance.toFixed(2)} — need 25 for the test buy, ${TARGET_USDC} is comfortable`,
+  usdcBalance >= MIN_BUY_USDC
+    ? `${usdcBalance.toFixed(2)} — buys up to $${Math.floor(usdcBalance)}`
+    : `${usdcBalance.toFixed(2)} — the smallest buy is $${MIN_BUY_USDC}`,
 );
 line(
   ethBalance >= 0.0002,
