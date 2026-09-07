@@ -39,6 +39,9 @@ export type SellLegQuote = {
 export type SellQuoteResponse = {
   legs: SellLegQuote[];
   calls: Call[];
+  /** Split at the same dependency a buy has: approvals must mine before swaps. */
+  approvalCalls: Call[];
+  swapCalls: Call[];
   skipped: { symbol: string; reason: string }[];
   /** Total USDC expected back, in base units. */
   proceedsUsdc: string;
@@ -227,9 +230,12 @@ export async function POST(request: Request) {
 
     const proceeds = priced.reduce((sum, entry) => sum + BigInt(entry.swap.amountOut), 0n);
 
+    // One approval per stock came first, then one swap per stock.
     const response: SellQuoteResponse = {
       legs,
       calls,
+      approvalCalls: calls.slice(0, priced.length),
+      swapCalls: calls.slice(priced.length),
       skipped,
       proceedsUsdc: proceeds.toString(),
       slippageBps,

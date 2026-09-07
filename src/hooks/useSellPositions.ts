@@ -2,9 +2,8 @@
 
 import { useCallback, useState } from "react";
 import { useConfig } from "wagmi";
-import { sendCalls, waitForCallsStatus } from "@wagmi/core";
 import type { Address, Hex } from "viem";
-import { CHAIN_ID } from "@/lib/chain";
+import { sendBatch } from "@/lib/batch";
 import { useWallet } from "./useWallet";
 import type { SellQuoteResponse } from "@/app/api/sell/route";
 import type { SellIntent } from "@/lib/sell";
@@ -75,24 +74,15 @@ export function useSellPositions() {
 
       try {
         setStage("signing");
-        const { id } = await sendCalls(config, {
-          chainId: CHAIN_ID,
-          calls: pending.calls.map((call) => ({
-            to: call.to as Address,
-            data: call.data as Hex,
-            value: BigInt(call.value ?? "0"),
-          })),
-          experimental_fallback: true,
+        const { txHash: hash } = await sendBatch({
+          config,
+          account: address as Address,
+          approvalCalls: pending.approvalCalls ?? [],
+          swapCalls: pending.swapCalls ?? pending.calls,
+          onProgress: (progress) =>
+            setStage(progress.phase === "approving" ? "signing" : "confirming"),
         });
 
-        setStage("confirming");
-        const status = await waitForCallsStatus(config, { id, timeout: 180_000 });
-        if (status.status !== "success") {
-          throw new Error("The batch did not confirm. Nothing was sold.");
-        }
-
-        const receipts = status.receipts ?? [];
-        const hash = receipts[receipts.length - 1]?.transactionHash as Hex | undefined;
         setTxHash(hash ?? null);
         setStage("done");
         return hash ?? null;

@@ -214,9 +214,10 @@ export function SellSheet({
                 </div>
                 <div className="p-3.5 text-[11px] leading-relaxed text-faint">
                   {quote.legs.length} approval{quote.legs.length === 1 ? "" : "s"} plus{" "}
-                  {quote.legs.length} swap{quote.legs.length === 1 ? "" : "s"}, sent as one batch
-                  you sign once. Selling needs an approval per stock because each is its own
-                  token. Percentages compare the route against the Chainlink feed;{" "}
+                  {quote.legs.length} swap{quote.legs.length === 1 ? "" : "s"} — selling needs an
+                  approval per stock because each is its own token. A smart wallet signs all of it
+                  at once; a wallet without batching asks per step, each prompt showing only that
+                  leg. Percentages compare the route against the Chainlink feed;{" "}
                   {(quote.slippageBps / 100).toFixed(1)}% slippage is encoded into the calldata.
                 </div>
               </div>

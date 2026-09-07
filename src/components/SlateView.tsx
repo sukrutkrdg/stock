@@ -274,7 +274,9 @@ export function SlateView({ slate }: { slate: Slate }) {
               </div>
               <div className="p-3.5 text-[11px] leading-relaxed text-faint">
                 One approval plus {quote.legs.length}{" "}
-                {quote.legs.length === 1 ? "swap" : "swaps"}, sent as a single batch you sign once.
+                {quote.legs.length === 1 ? "swap" : "swaps"}. A smart wallet signs all of it at
+                once; a wallet without batching asks for the approval first and then each swap in
+                turn, so several prompts is normal and each one shows only its own leg.
                 Percentages compare the route against the Chainlink feed;{" "}
                 {(quote.slippageBps / 100).toFixed(1)}% slippage is encoded into the calldata, so a
                 worse fill reverts instead of settling.

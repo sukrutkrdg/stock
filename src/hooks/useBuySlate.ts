@@ -2,9 +2,8 @@
 
 import { useCallback, useState } from "react";
 import { useAccount, useConfig } from "wagmi";
-import { sendCalls, waitForCallsStatus } from "@wagmi/core";
 import type { Address, Hex } from "viem";
-import { CHAIN_ID } from "@/lib/chain";
+import { sendBatch } from "@/lib/batch";
 import type { QuoteResponse } from "@/app/api/quote/route";
 import type { Leg } from "@/lib/slate";
 
@@ -78,29 +77,15 @@ export function useBuySlate() {
 
       try {
         setStage("signing");
-        const { id } = await sendCalls(config, {
-          chainId: CHAIN_ID,
-          calls: args.quote.calls.map((call) => ({
-            to: call.to as Address,
-            data: call.data as Hex,
-            value: BigInt(call.value ?? "0x0"),
-          })),
-          experimental_fallback: true,
+        const { txHash } = await sendBatch({
+          config,
+          account: address as Address,
+          approvalCalls: args.quote.approvalCalls ?? [],
+          swapCalls: args.quote.swapCalls ?? args.quote.calls,
+          onProgress: (progress) =>
+            setStage(progress.phase === "approving" ? "signing" : "confirming"),
         });
 
-        setStage("confirming");
-        const status = await waitForCallsStatus(config, { id, timeout: 180_000 });
-
-        if (status.status !== "success") {
-          throw new Error("The batch did not confirm. Nothing was bought.");
-        }
-
-        // The last receipt is the final swap; earlier ones are the approval and
-        // the preceding legs. Any of them proves the batch landed, but the last
-        // is the one whose logs carry the full set of stock transfers when the
-        // wallet settles the batch as a single transaction.
-        const receipts = status.receipts ?? [];
-        const txHash = receipts[receipts.length - 1]?.transactionHash as Hex | undefined;
         if (!txHash) throw new Error("Confirmed, but no receipt came back.");
 
         setStage("recording");

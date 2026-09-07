@@ -49,7 +49,18 @@ export type QuoteResponse = {
   spentUsdc: string;
   spender: Address | null;
   legs: QuoteLeg[];
+  /** Everything, in order. Only safe to send as one unit on an atomic wallet. */
   calls: Call[];
+  /**
+   * The same calls split at the dependency.
+   *
+   * A swap cannot be gas-estimated until its approval is mined, so a wallet
+   * without atomic batching fails to even build the transaction — which is
+   * what "an error occurred creating the transaction" means. Splitting lets the
+   * client send approvals, wait for them, then send the swaps.
+   */
+  approvalCalls: Call[];
+  swapCalls: Call[];
   skipped: { symbol: string; reason: string }[];
   slippageBps: number;
   marketClosed: boolean;
@@ -262,7 +273,13 @@ export async function POST(request: Request) {
       };
     });
 
+    // Approvals were pushed first, one per router, then one swap per leg.
+    const approvalCalls = calls.slice(0, spenders.length);
+    const swapCalls = calls.slice(spenders.length);
+
     const response: QuoteResponse = {
+      approvalCalls,
+      swapCalls,
       budgetUsdc: budgetBase.toString(),
       spentUsdc: spent.toString(),
       spender: spenders[0] ?? null,
