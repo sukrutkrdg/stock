@@ -12,6 +12,9 @@ const erc20Abi = parseAbi(["function approve(address spender, uint256 value) ret
 
 /** Selling is the thinner side of these books; 1% leaves too many legs reverting. */
 const DEFAULT_SLIPPAGE_BPS = 150;
+
+/** Same generous floor as a buy; a sell batch is longer, never shorter. */
+const MIN_GAS_WEI = 20_000_000_000_000n; // 0.00002 ETH
 const MAX_SLIPPAGE_BPS = 500;
 
 type Call = { to: Address; data: Hex; value: Hex };
@@ -77,7 +80,24 @@ export async function POST(request: Request) {
   );
 
   try {
-    const market = await readMarket();
+    const [market, gasBalance] = await Promise.all([
+      readMarket(),
+      publicClient().getBalance({ address: taker }),
+    ]);
+
+    // A sale needs one approval per stock, so the batch is longer than a buy's
+    // and the gas check matters more, not less.
+    if (gasBalance < MIN_GAS_WEI) {
+      return Response.json(
+        {
+          error:
+            gasBalance === 0n
+              ? "This wallet has no ETH on Base to pay gas. A few cents' worth is enough."
+              : "There is not quite enough ETH on Base to cover gas for this batch.",
+        },
+        { status: 409 },
+      );
+    }
 
     // Off-hours selling is allowed for the same reason off-hours buying is: the
     // pools are live and the alternative is trapping someone in a position

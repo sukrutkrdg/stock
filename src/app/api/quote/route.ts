@@ -14,6 +14,15 @@ const erc20Abi = parseAbi(["function approve(address spender, uint256 value) ret
 const DEFAULT_SLIPPAGE_BPS = 100;
 const MAX_SLIPPAGE_BPS = 500;
 
+/**
+ * Enough ETH to be confident a multi-call batch lands on Base.
+ *
+ * Base fees are a fraction of a cent, so this is deliberately generous rather
+ * than a computed estimate: the point is to catch an empty wallet before the
+ * user signs, not to price the batch to the wei.
+ */
+const MIN_GAS_WEI = 20_000_000_000_000n; // 0.00002 ETH
+
 const MIN_BUDGET_USDC = 5;
 const MAX_BUDGET_USDC = 50_000;
 
@@ -101,7 +110,7 @@ export async function POST(request: Request) {
   const budgetBase = BigInt(Math.round(budget * 10 ** USDC_DECIMALS));
 
   try {
-    const [market, usdcBalance] = await Promise.all([
+    const [market, usdcBalance, gasBalance] = await Promise.all([
       readMarket(),
       publicClient().readContract({
         address: USDC_ADDRESS,
@@ -109,12 +118,30 @@ export async function POST(request: Request) {
         functionName: "balanceOf",
         args: [taker],
       }) as Promise<bigint>,
+      publicClient().getBalance({ address: taker }),
     ]);
     const bySymbol = new Map(market.tickers.map((t) => [t.symbol, t]));
 
     // Checked before building anything. Routing an unaffordable basket produces
     // a perfectly valid batch that reverts the moment it is signed, and the
     // user learns why from a wallet error rather than from the app.
+    // Gas is the failure people do not see coming: the wallet has plenty of
+    // USDC, the batch is valid, and the prompt still refuses with a message
+    // about "resources" that never mentions ETH. Base fees are fractions of a
+    // cent, so this is about having any at all rather than having enough.
+    if (gasBalance < MIN_GAS_WEI) {
+      return Response.json(
+        {
+          error:
+            gasBalance === 0n
+              ? "This wallet has no ETH on Base to pay gas. A few cents' worth is enough."
+              : "There is not quite enough ETH on Base to cover gas for this batch.",
+          gasBalance: gasBalance.toString(),
+        },
+        { status: 409 },
+      );
+    }
+
     if (usdcBalance < budgetBase) {
       const held = Number(usdcBalance) / 10 ** USDC_DECIMALS;
       return Response.json(
